@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "tome.demo",
+  "name": "TOME Demo Pack",
+  "game": "Demo",
+  "author": "TOME contributors",
+  "version": "0.2.0",
+  "description": "A tiny pack for testing the app. Build the tiles with the slicer (see README).",
+  "categoryGroups": [
+    {
+      "id": "loot",
+      "name": "Loot"
+    },
+    {
+      "id": "places",
+      "name": "Places"
+    }
+  ],
+  "categories": [
+    {
+      "id": "collectible",
+      "name": "Chests",
+      "group": "loot",
+      "color": "#E8B04A",
+      "icon": "chest"
+    },
+    {
+      "id": "key",
+      "name": "Keys",
+      "group": "loot",
+      "color": "#C98BF0",
+      "icon": "key"
+    },
+    {
+      "id": "landmark",
+      "name": "Landmarks",
+      "group": "places",
+      "color": "#7FB2F0",
+      "icon": "flag"
+    },
+    {
+      "id": "bench",
+      "name": "Benches",
+      "group": "places",
+      "color": "#8FD19E",
+      "icon": "bench"
+    }
+  ],
+  "maps": [
+    {
+      "id": "world",
+      "name": "Demo World",
+      "image": {
+        "width": 2048,
+        "height": 1536
+      },
+      "tileSize": 256,
+      "minZoom": 0,
+      "maxZoom": 3,
+      "tiles": {
+        "archive": "world-tiles.zip",
+        "path": "{z}/{x}/{y}.png"
+      },
+      "markers": "markers/world.json",
+      "initialView": {
+        "x": 1024,
+        "y": 768,
+        "zoom": 1
+      }
+    }
+  ]
+}

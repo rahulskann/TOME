@@ -1,0 +1,44 @@
+[
+  {
+    "id": "center_stone",
+    "name": "Centre Stone",
+    "category": "landmark",
+    "x": 1024,
+    "y": 768,
+    "description": "The middle of the map. Useful for checking coordinate conversion.",
+    "trackable": false
+  },
+  {
+    "id": "corner_chest_nw",
+    "name": "North-West Chest",
+    "category": "collectible",
+    "x": 128,
+    "y": 128,
+    "description": "Should appear near the top-left corner."
+  },
+  {
+    "id": "corner_chest_se",
+    "name": "South-East Chest",
+    "category": "collectible",
+    "x": 1920,
+    "y": 1408,
+    "description": "Should appear near the bottom-right corner."
+  },
+  {
+    "id": "west_key",
+    "name": "Rusty Key",
+    "category": "key",
+    "x": 320,
+    "y": 1180,
+    "description": "Opens the North-West Chest."
+  },
+  {
+    "id": "east_bench",
+    "name": "East Bench",
+    "category": "bench",
+    "x": 1700,
+    "y": 520,
+    "description": "Rest point. Not something you collect, so it can't be checked off.",
+    "trackable": false
+  }
+]
