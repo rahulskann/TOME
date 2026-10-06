@@ -45,7 +45,12 @@ class _PacksScreenState extends State<PacksScreen> {
     ));
   }
 
-  void _reload() => setState(() => _packs = _load());
+  void _reload() {
+    final reload = _load();
+    setState(() {
+      _packs = reload;
+    });
+  }
 
   Future<void> _addPack() async {
     final added = await Navigator.of(context).push<InstalledPack>(
