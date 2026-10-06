@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../map/map_screen.dart';
 import '../map/marker_filter.dart';
 import '../progress/progress_store.dart';
+import 'add_pack_screen.dart';
+import 'pack_installer.dart';
 import 'pack_store.dart';
 
 /// Lists the packs installed on this device.
@@ -43,10 +45,73 @@ class _PacksScreenState extends State<PacksScreen> {
     ));
   }
 
+  void _reload() => setState(() => _packs = _load());
+
+  Future<void> _addPack() async {
+    final added = await Navigator.of(context).push<InstalledPack>(
+        MaterialPageRoute(builder: (_) => const AddPackScreen()));
+    if (added != null && mounted) {
+      _reload();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Installed ${added.manifest.name}')));
+    }
+  }
+
+  Future<void> _checkForUpdate(InstalledPack pack) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Checking for updates…')));
+    try {
+      final update = await checkForUpdate(pack);
+      messenger.hideCurrentSnackBar();
+      if (!mounted) return;
+      if (update == null) {
+        messenger.showSnackBar(
+            SnackBar(content: Text('${pack.manifest.name} is up to date (v${pack.manifest.version})')));
+        return;
+      }
+      final edited = await hasLocalMarkerEdits(pack);
+      if (!mounted) return;
+      final installed = await Navigator.of(context).push<InstalledPack>(MaterialPageRoute(
+          builder: (_) => AddPackScreen(update: update, replacesEdits: edited)));
+      if (installed != null && mounted) {
+        _reload();
+        messenger.showSnackBar(SnackBar(
+            content: Text('Updated ${installed.manifest.name} to v${installed.manifest.version}')));
+      }
+    } on PackFetchException catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _delete(InstalledPack pack) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${pack.manifest.name}?'),
+        content: const Text('Its maps are removed from this device. Your found progress is kept, '
+            'so reinstalling it later restores your progress.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await deletePack(pack);
+    if (mounted) _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('TOME')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addPack,
+        icon: const Icon(Icons.add),
+        label: const Text('Add pack'),
+      ),
       body: FutureBuilder(
         future: _packs,
         builder: (context, snapshot) {
@@ -66,13 +131,15 @@ class _PacksScreenState extends State<PacksScreen> {
               await reload;
             },
             child: ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               children: [
                 for (final pack in packs)
                   _PackCard(
                     pack: pack,
                     progress: _progress[pack.manifest.id]!,
                     onTap: () => _open(pack),
+                    onCheckUpdate: isBundled(pack) ? null : () => _checkForUpdate(pack),
+                    onDelete: isBundled(pack) ? null : () => _delete(pack),
                   ),
                 for (final e in _errors)
                   Card(
@@ -93,11 +160,19 @@ class _PacksScreenState extends State<PacksScreen> {
 }
 
 class _PackCard extends StatelessWidget {
-  const _PackCard({required this.pack, required this.progress, required this.onTap});
+  const _PackCard({
+    required this.pack,
+    required this.progress,
+    required this.onTap,
+    this.onCheckUpdate,
+    this.onDelete,
+  });
 
   final InstalledPack pack;
   final ProgressStore progress;
   final VoidCallback onTap;
+  final VoidCallback? onCheckUpdate;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -131,7 +206,17 @@ class _PackCard extends StatelessWidget {
                 ],
               ],
             ),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: onCheckUpdate == null && onDelete == null
+                ? const Icon(Icons.chevron_right)
+                : PopupMenuButton<VoidCallback>(
+                    onSelected: (action) => action(),
+                    itemBuilder: (_) => [
+                      if (onCheckUpdate case final f?)
+                        PopupMenuItem(value: f, child: const Text('Check for update')),
+                      if (onDelete case final f?)
+                        PopupMenuItem(value: f, child: const Text('Delete')),
+                    ],
+                  ),
             onTap: onTap,
           );
         },

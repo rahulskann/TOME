@@ -102,7 +102,11 @@ Future<void> installBundledPack(String assetRoot) async {
   if (await installed.exists()) {
     try {
       final current = jsonDecode(await installed.readAsString()) as Map<String, dynamic>;
-      if (current['version'] == manifest.version) return;
+      if (current['version'] == manifest.version) {
+        // Installs from before the marker existed need it too.
+        await File(p.join(dir.path, '.bundled')).writeAsString('');
+        return;
+      }
     } on FormatException {
       // Corrupt manifest: fall through and reinstall.
     }
@@ -120,5 +124,7 @@ Future<void> installBundledPack(String assetRoot) async {
     await extractArchiveToDisk(ZipDecoder().decodeBytes(bytes.buffer.asUint8List()),
         p.join(dir.path, map.id, 'tiles'));
   }
+  // Marks it as shipped with the app (not deletable or updatable from a link).
+  await File(p.join(dir.path, '.bundled')).writeAsString('');
   await installed.writeAsString(manifestJson);
 }

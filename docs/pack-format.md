@@ -131,6 +131,17 @@ Each game decides its own groups and categories; the app has no built-in notion 
 "collectible" or "boss". A category's `id` is what markers reference and what the app
 remembers filter choices by, so don't rename it after publishing.
 
+## Publishing
+
+Commit `pack.json` and `markers/` to a public GitHub repo (a pack can live in a subfolder),
+and attach the tile zips to a GitHub Release. `tools/publish_pack.py <pack> --repo owner/repo`
+sets each `tiles.archive` to the release URL and prints the `gh release create` command.
+Players add the pack in the app with `owner/repo/folder`. Bump `version` to publish an
+update; the app compares versions when the player checks for updates.
+
+A step-by-step guide for making a pack is in the
+[demo_maps README](https://github.com/rahulskann/demo_maps#make-your-own-map).
+
 ## Offline content and links
 
 Everything a player needs on the go — name, position, category, `description` — is stored in

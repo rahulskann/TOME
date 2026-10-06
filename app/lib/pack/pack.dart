@@ -211,6 +211,7 @@ class MapDefinition {
     required this.maxZoom,
     required this.tilesArchive,
     required this.tilesPath,
+    this.archiveBytes,
     this.markersPath,
     this.initialView,
     this.regions = const [],
@@ -229,6 +230,9 @@ class MapDefinition {
   /// Zoom level at which one tile pixel is one image pixel.
   final int maxZoom;
   final String tilesArchive;
+
+  /// Size of [tilesArchive] in bytes, if the pack declares it.
+  final int? archiveBytes;
 
   /// Template of tile paths inside the archive, e.g. `{z}/{x}/{y}.png`.
   final String tilesPath;
@@ -263,6 +267,7 @@ class MapDefinition {
       minZoom: json['minZoom'] as int? ?? 0,
       maxZoom: json['maxZoom'] as int,
       tilesArchive: tiles['archive'] as String,
+      archiveBytes: tiles['archiveBytes'] as int?,
       tilesPath: tiles['path'] as String,
       markersPath: json['markers'] as String?,
       initialView: view == null ? null : InitialView.fromJson(view),

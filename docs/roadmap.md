@@ -29,8 +29,12 @@ Modelled on what makes MapGenie / mapsilksong / the Genshin maps useful, without
 - [ ] Marker clustering when zoomed out on dense maps
 
 ## Phase 3 — Sharing packs (the travel use case)
-- [ ] Add a pack by GitHub URL, including a subfolder (e.g. `owner/demo_maps/silksong`); preview size
-- [ ] Download + extract tile zips with progress and resume; installed packs list, delete, update
+- [x] Add a pack by GitHub link (owner/repo[/folder], github.com, tree/blob, raw, any https folder);
+      preview name, maps and download size
+- [x] Download tile zips with progress, cancel and resume; extract streaming; swap in atomically so a
+      failed download never breaks the installed version
+- [x] Check for update (version compare), warn before replacing on-device marker edits; delete
+- [x] `tools/publish_pack.py`: point pack.json at a GitHub Release and print the `gh` commands
 - [ ] Download a region's detailed map only when wanted (big games stay small on the phone)
 - [ ] Fully usable in airplane mode
 

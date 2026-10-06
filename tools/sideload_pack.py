@@ -41,9 +41,8 @@ def stage(pack_dir: Path, out: Path) -> dict:
     manifest = json.loads(manifest_text)
     for m in manifest["maps"]:
         archive = m["tiles"]["archive"]
-        if "://" in archive:
-            raise SystemExit(f"map {m['id']}: tiles.archive is a URL; sideloading needs a local zip")
-        src = pack_dir / archive
+        # Published packs point at a release URL; use the local build of it.
+        src = pack_dir / "out" / archive.rsplit("/", 1)[-1] if "://" in archive else pack_dir / archive
         if not src.exists():
             raise SystemExit(f"map {m['id']}: {src} not found - run the slicer with --zip first")
         with zipfile.ZipFile(src) as z:

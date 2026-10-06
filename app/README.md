@@ -26,7 +26,10 @@ Then:
 | --- | --- |
 | `lib/pack/pack.dart` | Models for `pack.json` and markers files ([pack format](../docs/pack-format.md)) |
 | `lib/pack/pack_store.dart` | On-device pack layout: install bundled packs, list and open installed ones |
-| `lib/pack/packs_screen.dart` | Home screen listing installed packs |
+| `lib/pack/packs_screen.dart` | Home screen listing installed packs; add, update, delete |
+| `lib/pack/pack_location.dart` | Turns a pasted link into the pack's folder URL(s) |
+| `lib/pack/pack_installer.dart` | Fetch, download (resumable), extract, install, update checks |
+| `lib/pack/add_pack_screen.dart` | Add-a-pack / update screen with preview and progress |
 | `lib/pack/category_icons.dart` | Built-in icon names packs can use |
 | `lib/map/filter_sheet.dart`, `marker_filter.dart` | Category filter panel and remembered choices |
 | `lib/map/image_coords.dart` | Image pixel ↔ map coordinate conversion |
