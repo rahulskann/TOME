@@ -21,19 +21,24 @@ publish from their own GitHub repository.
 
 | Path | What it is |
 | --- | --- |
-| [`app/`](app/) | The Flutter app (not scaffolded yet — see below) |
+| [`app/`](app/) | The Flutter app (Android; iOS builds need a Mac) |
+| [`studio/`](studio/) | TOME Studio: a website for making packs in the browser |
 | [`docs/`](docs/) | Architecture, pack format, roadmap |
 | [`schemas/`](schemas/) | JSON Schemas for `pack.json` and markers files |
-| [`tools/slicer/`](tools/slicer/) | Python tool that turns a huge map image into a tile pack |
+| [`tools/`](tools/) | Python tools: slicer, compose, publish, sideload, wiki text |
 | [`examples/demo-pack/`](examples/demo-pack/) | A minimal example pack |
 
 ## Making a map pack
 
-1. Get a high-resolution image of your map.
-2. Slice it: `python tools/slicer/slice_map.py world.png out/ --map-id world --zip`
-3. Write a `pack.json` and a markers file (see [docs/pack-format.md](docs/pack-format.md)).
-4. Push `pack.json` + markers to a GitHub repo and attach the tile zip to a GitHub Release.
-5. In the app, add the pack by its repo URL.
+**Easiest:** use [TOME Studio](studio/) in your browser: add your map image, place markers,
+export, and follow the included publishing steps.
+
+**By hand:** slice your image with `python tools/slicer/slice_map.py world.png out/ --map-id world --zip`,
+write `pack.json` and markers ([docs/pack-format.md](docs/pack-format.md)), push them to a
+GitHub repo, and attach the tile zip to a release (`tools/publish_pack.py` helps). A full
+walkthrough is in the [demo_maps README](https://github.com/rahulskann/demo_maps#make-your-own-map).
+
+Players add a pack in the app by its link, e.g. `rahulskann/demo_maps/silksong`.
 
 ## Status
 

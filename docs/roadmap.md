@@ -38,6 +38,13 @@ Modelled on what makes MapGenie / mapsilksong / the Genshin maps useful, without
 - [ ] Download a region's detailed map only when wanted (big games stay small on the phone)
 - [ ] Fully usable in airplane mode
 
+## Phase 3.5 — TOME Studio (website)
+- [x] Browser-based pack maker in `studio/`: add map images (tiles cut in the browser), types,
+      markers, regions; open a published pack by link; export a ready-to-publish zip
+- [ ] Deploy on Vercel (`tome.rahulkannan.com`)
+- [ ] Place region images on a canvas (compose) in the browser
+- [ ] Sign in with GitHub to publish directly (small serverless function)
+
 ## Phase 4 — Seamless detailed maps
 For games whose in-game map is geometrically consistent when zoomed in (Silksong is):
 - [ ] Stitch tool: combine overlapping zoomed-in screenshots into one large map
