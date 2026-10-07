@@ -50,6 +50,13 @@ button {
   background: var(--card); color: var(--text); cursor: pointer; font: inherit;
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
+a.button {
+  display: inline-flex; align-items: center; gap: 6px; margin: 4px 4px 4px 0; padding: 7px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text);
+  text-decoration: none;
+}
+a.button:hover { border-color: var(--accent); }
+a.button .material-icons { font-size: 18px; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.primary { background: var(--accent); color: #0b0d12; border-color: var(--accent); }
 button.ghost { background: transparent; }

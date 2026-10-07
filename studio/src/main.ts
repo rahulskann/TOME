@@ -318,10 +318,15 @@ function loadOpened(opened: OpenedPack, fromZip: boolean) {
     state.activeMap = opened.pack.maps[0]?.id;
     fittedFor = undefined;
     const withTiles = Object.keys(state.keptTiles).length;
-    state.status = fromZip
-      ? `Opened ${opened.pack.name}${withTiles ? `; rebuilding ${withTiles} map image(s) from their tiles…` : '.'}`
-      : `Opened ${opened.pack.name}. To see a map, use "Load tiles zip" in the Maps tab ` +
-        '(GitHub doesn\'t let websites read release downloads), or open the pack as a zip.';
+    const missing = opened.pack.maps.length - withTiles;
+    state.status = [
+      `Opened ${opened.pack.name}.`,
+      withTiles ? `Rebuilding ${withTiles} map image(s) from their tiles…` : '',
+      missing
+        ? `${missing} map(s) have no tiles here (GitHub keeps them in releases, not in the repo or its ` +
+          'Download ZIP). In the Maps tab, use "Get tiles from release", then "Load tiles zip".'
+        : '',
+    ].filter(Boolean).join(' ');
   });
   for (const m of opened.pack.maps) {
     if (state.keptTiles[m.id]) void showTiles(m);
@@ -335,7 +340,7 @@ async function showTiles(m: MapDef) {
     const bitmap = await createImageBitmap(blob);
     update(() => {
       state.images[m.id] = { url: URL.createObjectURL(blob), bitmap, width: bitmap.width, height: bitmap.height, buildTiles: false };
-      if (state.status.includes('rebuilding')) state.status = `Opened ${state.pack.name}.`;
+      state.status = state.status.replace(/Rebuilding \d+ map image\(s\) from their tiles…\s*/, '');
       if (m.id === state.activeMap) fittedFor = undefined;
     });
   } catch (e) {
@@ -520,10 +525,15 @@ function mapsTab() {
               update(() => (img.buildTiles = (e.target as HTMLInputElement).checked), false) }),
             'Build new tiles from this image on export')
           : h('small', { class: 'warn' }, 'No image loaded: markers show on a blank outline.'),
+        !img && /^https?:\/\//.test(m.tiles.archive)
+          ? h('a', { class: 'button', href: m.tiles.archive, target: '_blank', rel: 'noopener' },
+            icon('cloud_download'), 'Get tiles from release')
+          : null,
         !img
           ? h('button', {
             onclick: () => zipPicker((f) => {
               state.keptTiles[m.id] = f;
+              update(() => (state.status = `Rebuilding ${m.name} from its tiles…`), false);
               void showTiles(m);
             }),
           }, icon('folder_zip'), 'Load tiles zip')
