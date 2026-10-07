@@ -94,15 +94,7 @@ class _MapScreenState extends State<MapScreen> {
 
   MapDefinition? get _detailMap => _manifest.map(_map.zoomsInto?.map);
 
-  bool get _hasUnlinkedMaps {
-    final linked = {
-      for (final m in _manifest.maps) ...[
-        for (final r in m.regions) r.map,
-        m.zoomsInto?.map,
-      ],
-    };
-    return _manifest.maps.skip(1).any((m) => !linked.contains(m.id));
-  }
+  bool get _hasUnlinkedMaps => _manifest.reachableMaps.length < _manifest.maps.length;
 
   // Zooming past these swaps maps. Child maps allow zooming out one level
   // beyond their tiles so there's room to trigger the swap back.

@@ -82,6 +82,33 @@ class PackManifest {
   }
 
   /// The map with a region that opens [child], used to zoom back out.
+  /// Ids of maps a player can reach from the first (opening) map by zooming
+  /// or tapping: into region maps and detailed maps, and back out to parents.
+  Set<String> get reachableMaps {
+    if (maps.isEmpty) return {};
+    final links = <String, Set<String>>{for (final m in maps) m.id: {}};
+    void connect(String a, String? b) {
+      if (b == null || !links.containsKey(b)) return;
+      links[a]!.add(b);
+      links[b]!.add(a); // zooming out leads back
+    }
+
+    for (final m in maps) {
+      for (final r in m.regions) {
+        connect(m.id, r.map);
+      }
+      connect(m.id, m.zoomsInto?.map);
+    }
+    final seen = {maps.first.id};
+    final queue = [maps.first.id];
+    while (queue.isNotEmpty) {
+      for (final next in links[queue.removeLast()]!) {
+        if (seen.add(next)) queue.add(next);
+      }
+    }
+    return seen;
+  }
+
   /// The overview that zooms into [child], if any.
   (MapDefinition, ZoomLink)? zoomParentOf(MapDefinition child) {
     for (final m in maps) {

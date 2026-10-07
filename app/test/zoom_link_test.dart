@@ -106,4 +106,18 @@ void main() {
     expect(o.zoomsInto!.covers(o, 400, 400), isFalse);
     expect(link.covers(overview, 400, 400), isTrue, reason: 'no list means everywhere');
   });
+
+  test('reachable maps go both ways from the opening map', () {
+    PackManifest pack(List<Map<String, dynamic>> maps) => PackManifest.fromJson(
+        {'schemaVersion': 1, 'id': 'r', 'name': 'R', 'version': '1', 'maps': maps});
+    final link = {'map': 'detail', 'points': points};
+    // Detail opens first; the overview is reached by zooming out.
+    expect(pack([_map('detail', 10, 10, 0), _map('overview', 10, 10, 0, zoomsInto: link)]).reachableMaps,
+        {'detail', 'overview'});
+    // An unrelated third map isn't reachable, so the map menu is needed.
+    expect(
+        pack([_map('overview', 10, 10, 0, zoomsInto: link), _map('detail', 10, 10, 0), _map('dungeon', 10, 10, 0)])
+            .reachableMaps,
+        {'overview', 'detail'});
+  });
 }
