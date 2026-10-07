@@ -62,6 +62,9 @@ class _MapScreenState extends State<MapScreen> {
   /// Region the user is zoomed in on but hasn't entered yet.
   MapRegion? _approaching;
 
+  /// Zoomed past this overview's detail, about to swap to its detailed map.
+  bool _approachingDetail = false;
+
   /// Marker just jumped to; ringed and shown even if filtered.
   String? _highlightId;
 
@@ -78,12 +81,25 @@ class _MapScreenState extends State<MapScreen> {
   Iterable<MapRegion> get _regions =>
       _map.regions.where((r) => _manifest.map(r.map) != null);
 
-  (MapDefinition, MapRegion)? get _parent => _manifest.parentOf(_map);
+  /// The map that zooming out of this one returns to, and how to get there.
+  _ParentLink? get _parent {
+    if (_manifest.parentOf(_map) case (final map, final region)) {
+      return _ParentLink(map, (x, y) => region.fromChild(x, y, _map), region.zoomOffset(map, _map));
+    }
+    if (_manifest.zoomParentOf(_map) case (final map, final link)) {
+      return _ParentLink(map, link.fromDetail, link.zoomOffset(map, _map));
+    }
+    return null;
+  }
+
+  MapDefinition? get _detailMap => _manifest.map(_map.zoomsInto?.map);
 
   bool get _hasUnlinkedMaps {
     final linked = {
-      for (final m in _manifest.maps)
+      for (final m in _manifest.maps) ...[
         for (final r in m.regions) r.map,
+        m.zoomsInto?.map,
+      ],
     };
     return _manifest.maps.skip(1).any((m) => !linked.contains(m.id));
   }
@@ -295,17 +311,25 @@ class _MapScreenState extends State<MapScreen> {
                 children: [
                   if (_approaching case final region?)
                     _RegionHint(
-                      region: region,
+                      name: region.name,
                       onOpen: () {
                         final (x, y) = coords.toPixel(_controller.camera.center);
                         _enterRegion(region, x, y, _controller.camera.zoom);
+                      },
+                    )
+                  else if (_approachingDetail && _detailMap != null)
+                    _RegionHint(
+                      name: _detailMap!.name,
+                      onOpen: () {
+                        final (x, y) = coords.toPixel(_controller.camera.center);
+                        _enterDetail(x, y, _controller.camera.zoom);
                       },
                     )
                   else if (parent != null)
                     FilledButton.tonalIcon(
                       onPressed: () => _exitToParent(_controller.camera),
                       icon: const Icon(Icons.zoom_out_map),
-                      label: Text(parent.$1.name),
+                      label: Text(parent.map.name),
                     ),
                   if (_editing)
                     _EditHint(
@@ -333,15 +357,34 @@ class _MapScreenState extends State<MapScreen> {
   void _onCameraMoved(MapCamera camera, bool hasGesture) {
     if (_switching || _moving != null) return;
     final (x, y) = _coords.toPixel(camera.center);
-    final region = camera.zoom > _map.maxZoom + 0.25 ? _regionAt(x, y) : null;
-    if (region != _approaching) setState(() => _approaching = region);
+    final pastDetail = camera.zoom > _map.maxZoom + 0.25;
+    final region = pastDetail ? _regionAt(x, y) : null;
+    final detail = pastDetail && region == null && _detailMap != null;
+    if (region != _approaching || detail != _approachingDetail) {
+      setState(() {
+        _approaching = region;
+        _approachingDetail = detail;
+      });
+    }
     if (!hasGesture) return;
 
-    if (region != null && camera.zoom >= _enterZoom) {
+    if (camera.zoom >= _enterZoom && region != null) {
       _enterRegion(region, x, y, camera.zoom);
+    } else if (camera.zoom >= _enterZoom && detail) {
+      _enterDetail(x, y, camera.zoom);
     } else if (_parent != null && camera.zoom <= _exitZoom) {
       _exitToParent(camera);
     }
+  }
+
+  /// Continues on this overview's detailed map at the matching spot.
+  void _enterDetail(double x, double y, double zoom) {
+    final link = _map.zoomsInto!;
+    final detail = _detailMap!;
+    final (dx, dy) = link.toDetail(x, y);
+    final z = (zoom + link.zoomOffset(_map, detail))
+        .clamp(detail.minZoom.toDouble(), detail.maxZoom + 1.0);
+    _switchTo(detail, x: dx, y: dy, zoom: z);
   }
 
   void _enterRegion(MapRegion region, double x, double y, double zoom) {
@@ -354,12 +397,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _exitToParent(MapCamera camera) {
-    final (parent, region) = _parent!;
+    final parent = _parent!;
     final (x, y) = _coords.toPixel(camera.center);
-    final (px, py) = region.fromChild(x, y, _map);
-    final z = (camera.zoom - region.zoomOffset(parent, _map))
-        .clamp(parent.minZoom.toDouble(), parent.maxZoom.toDouble());
-    _switchTo(parent, x: px, y: py, zoom: z);
+    final (px, py) = parent.toParent(x, y);
+    final z = (camera.zoom - parent.zoomOffset)
+        .clamp(parent.map.minZoom.toDouble(), parent.map.maxZoom.toDouble());
+    _switchTo(parent.map, x: px, y: py, zoom: z);
   }
 
   /// Markers can open another map: land on the matching spot if a region
@@ -408,6 +451,7 @@ class _MapScreenState extends State<MapScreen> {
             : null;
         _generation++;
         _approaching = null;
+        _approachingDetail = false;
         _moving = null;
         _switching = false;
       });
@@ -812,10 +856,21 @@ class _HighlightState extends State<_Highlight> with SingleTickerProviderStateMi
   }
 }
 
-class _RegionHint extends StatelessWidget {
-  const _RegionHint({required this.region, required this.onOpen});
+/// Where zooming out of a map leads.
+class _ParentLink {
+  const _ParentLink(this.map, this.toParent, this.zoomOffset);
 
-  final MapRegion region;
+  final MapDefinition map;
+  final (double, double) Function(double x, double y) toParent;
+
+  /// Added to a parent zoom when going in; subtracted coming out.
+  final double zoomOffset;
+}
+
+class _RegionHint extends StatelessWidget {
+  const _RegionHint({required this.name, required this.onOpen});
+
+  final String name;
   final VoidCallback onOpen;
 
   @override
@@ -833,7 +888,7 @@ class _RegionHint extends StatelessWidget {
             Icon(Icons.zoom_in, color: scheme.onPrimaryContainer),
             const SizedBox(width: 8),
             Flexible(
-              child: Text('Zoom in to enter ${region.name}',
+              child: Text('Zoom in to enter $name',
                   style: TextStyle(color: scheme.onPrimaryContainer)),
             ),
             TextButton(onPressed: onOpen, child: const Text('Open')),

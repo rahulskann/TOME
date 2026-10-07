@@ -85,8 +85,10 @@ def unpulled_edits(adb: list[str], pack_dir: Path, manifest: dict) -> list[str]:
         if current is None:
             continue  # not installed yet
         # Baseline: as last sideloaded, or as downloaded by the app (its .installed copy).
-        baseline = (phone_file(adb, manifest["id"], f"{SNAPSHOT_DIR}/{rel}")
-                    or phone_file(adb, manifest["id"], f".installed/{rel}"))
+        # (Explicit None checks: an empty marker list is a valid snapshot.)
+        baseline = phone_file(adb, manifest["id"], f"{SNAPSHOT_DIR}/{rel}")
+        if baseline is None:
+            baseline = phone_file(adb, manifest["id"], f".installed/{rel}")
         if baseline is None:
             # Installed before snapshots existed: compare with this folder instead.
             local = pack_dir / rel

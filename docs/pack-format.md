@@ -74,6 +74,7 @@ Tile archives are attached to a GitHub Release, not committed.
 | `maps[].regions` | no | Named regions and areas of this map. See below. |
 | `maps[].description` | no | About this map, shown in its info sheet (with optional `source` credit). |
 | `maps[].wiki` | no | Wiki page for this map. |
+| `maps[].zoomsInto` | no | A detailed map that zooming in anywhere on this one continues on. See below. |
 
 ### Regions and areas
 
@@ -120,6 +121,25 @@ the matching spot; zooming out of the detailed map swaps back. The two maps don'
 share geometry (a stylised overview is fine): positions are carried across by mapping the
 outline's bounding box onto `target`. A map whose tiles show the whole world in full detail
 doesn't need regions at all.
+
+### Zooming from an overview into a detailed map
+
+If a game has a stylised overview *and* a detailed map of the whole world, link them with
+matching points, e.g. each region's label on both. Zooming in anywhere on the overview then
+swaps to the detailed map at the matching spot, with all the surrounding areas present, and
+zooming out swaps back:
+
+```json
+"zoomsInto": {
+  "map": "pharloom_detailed",
+  "points": [[896, 104, 3645, 150], [1150, 600, 1833, 4038], ...]
+}
+```
+
+Each point is `[overviewX, overviewY, detailX, detailY]`; at least 2, and more give a closer
+match. Positions between points are blended from the nearest ones, so the two maps don't need
+to share geometry. Prefer this over region maps when you have a detailed map of everything:
+region maps show only their region, with gaps around it.
 
 ### Category icons
 

@@ -43,7 +43,7 @@ For games whose in-game map is geometrically consistent when zoomed in (Silksong
 - [ ] Stitch tool: combine overlapping zoomed-in screenshots into one large map
 - [ ] Slicer support for very large images (sparse tiles, streaming) so a whole world zooms
       continuously from overview to individual rooms
-- [ ] Optional schematic overview kept as a separate map
+- [x] Overview zooms seamlessly into a detailed whole-world map (`zoomsInto` matching points)
 
 ## Phase 5 — Sync & more
 - [ ] Cross-device progress sync (see architecture.md)

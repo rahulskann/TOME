@@ -82,6 +82,15 @@ class PackManifest {
   }
 
   /// The map with a region that opens [child], used to zoom back out.
+  /// The overview that zooms into [child], if any.
+  (MapDefinition, ZoomLink)? zoomParentOf(MapDefinition child) {
+    for (final m in maps) {
+      final link = m.zoomsInto;
+      if (link != null && link.map == child.id && m.id != child.id) return (m, link);
+    }
+    return null;
+  }
+
   (MapDefinition, MapRegion)? parentOf(MapDefinition child) {
     for (final m in maps) {
       for (final r in m.regions) {
@@ -218,6 +227,7 @@ class MapDefinition {
     this.description,
     this.source,
     this.wiki,
+    this.zoomsInto,
   });
 
   final String id;
@@ -250,6 +260,9 @@ class MapDefinition {
   /// Wiki page for this map (see [PackManifest.wiki]).
   final String? wiki;
 
+  /// A more detailed map that zooming in anywhere on this one swaps to.
+  final ZoomLink? zoomsInto;
+
   /// Where this map's markers live, relative to the pack root. Maps without
   /// a `markers` entry get a conventional path so edits have somewhere to go.
   String get markersFile => markersPath ?? 'markers/$id.json';
@@ -278,7 +291,92 @@ class MapDefinition {
       description: json['description'] as String?,
       source: ContentSource.fromJsonOrNull(json['source']),
       wiki: json['wiki'] as String?,
+      zoomsInto: json['zoomsInto'] == null
+          ? null
+          : ZoomLink.fromJson(json['zoomsInto'] as Map<String, dynamic>),
     );
+  }
+}
+
+/// Links an overview to a detailed map of the same world through matching
+/// points (e.g. each region's label on both), so zooming in anywhere on the
+/// overview can continue on the detailed map at the matching spot, and back.
+///
+/// The maps needn't share geometry: positions are carried across by blending
+/// the nearest matching points (inverse-distance weighting), using the overall
+/// scale between the maps for the offset from each point.
+class ZoomLink {
+  ZoomLink({required this.map, required List<(double, double, double, double)> points})
+      : points = List.unmodifiable(points) {
+    if (points.length < 2) {
+      throw FormatException('zoomsInto needs at least 2 matching points');
+    }
+  }
+
+  /// Id of the detailed map.
+  final String map;
+
+  /// Matching points: (x, y) on this map and (x, y) on the detailed map.
+  final List<(double, double, double, double)> points;
+
+  factory ZoomLink.fromJson(Map<String, dynamic> json) => ZoomLink(
+        map: json['map'] as String,
+        points: [
+          for (final p in (json['points'] as List).cast<List<dynamic>>())
+            (
+              (p[0] as num).toDouble(),
+              (p[1] as num).toDouble(),
+              (p[2] as num).toDouble(),
+              (p[3] as num).toDouble(),
+            ),
+        ],
+      );
+
+  /// Detailed-map pixels per overview pixel, from the spread of the points.
+  late final double scale = () {
+    final n = points.length;
+    final (sx, sy, dx, dy) = points.fold((0.0, 0.0, 0.0, 0.0),
+        (a, p) => (a.$1 + p.$1 / n, a.$2 + p.$2 / n, a.$3 + p.$3 / n, a.$4 + p.$4 / n));
+    var src = 0.0, dst = 0.0;
+    for (final p in points) {
+      src += math.sqrt((p.$1 - sx) * (p.$1 - sx) + (p.$2 - sy) * (p.$2 - sy));
+      dst += math.sqrt((p.$3 - dx) * (p.$3 - dx) + (p.$4 - dy) * (p.$4 - dy));
+    }
+    return src == 0 ? 1.0 : dst / src;
+  }();
+
+  /// A point on this map carried to the detailed map.
+  (double, double) toDetail(double x, double y) =>
+      _blend(x, y, (p) => (p.$1, p.$2), (p) => (p.$3, p.$4), scale);
+
+  /// A point on the detailed map carried back to this map.
+  (double, double) fromDetail(double x, double y) =>
+      _blend(x, y, (p) => (p.$3, p.$4), (p) => (p.$1, p.$2), 1 / scale);
+
+  /// Zoom offset keeping things the same size on screen when swapping from
+  /// [overview] to [detail] (add going in, subtract coming out).
+  double zoomOffset(MapDefinition overview, MapDefinition detail) =>
+      (detail.maxZoom - overview.maxZoom) - math.log(scale) / math.ln2;
+
+  (double, double) _blend(
+    double x,
+    double y,
+    (double, double) Function((double, double, double, double)) from,
+    (double, double) Function((double, double, double, double)) to,
+    double k,
+  ) {
+    var wx = 0.0, wy = 0.0, wsum = 0.0;
+    for (final p in points) {
+      final (fx, fy) = from(p);
+      final (tx, ty) = to(p);
+      final d2 = (x - fx) * (x - fx) + (y - fy) * (y - fy);
+      if (d2 < 1e-9) return (tx, ty);
+      final w = 1 / (d2 * d2); // sharp falloff: the nearest points dominate
+      wx += w * (tx + k * (x - fx));
+      wy += w * (ty + k * (y - fy));
+      wsum += w;
+    }
+    return (wx / wsum, wy / wsum);
   }
 }
 
