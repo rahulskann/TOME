@@ -17,9 +17,18 @@ runs in the browser (tiles are cut on your machine); there's no server.
 Work is saved in your browser as you go (map images aren't, so re-add them after a reload).
 Ids follow names until you export, then stay fixed: players' progress is saved under them.
 
-**Editing a published pack:** Pack → *Open a published pack* with `owner/repo/folder`. The
-markers and settings load from GitHub; add the map image yourself to see it (browsers can't
-read GitHub release downloads). Uncheck *Build new tiles* if you only want to edit markers.
+**Editing a pack you've already published** (round trip through a zip):
+
+1. Zip the pack folder from your repo, including `out/*-tiles.zip` if you have them locally,
+   or use GitHub's **Code → Download ZIP** (a whole repo is fine; you pick the pack).
+2. **Pack → Open a pack zip.** Maps are rebuilt from their tiles. Packs downloaded from
+   GitHub won't have the tiles (they're in releases): use **Maps → Load tiles zip** with the
+   zip from the release.
+3. Edit, then **Export**. The zip unpacks to the same folder name (e.g. `silksong`), keeps
+   release links and carries the tile zips through unchanged unless you tick
+   *Build new tiles*. Unzip it over the folder in your repo, check `git diff`, commit.
+
+You can also load just `pack.json` and markers with *Open link*.
 
 ## Develop
 

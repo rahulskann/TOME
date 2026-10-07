@@ -15,8 +15,9 @@ import {
   uniqueId,
   validate,
 } from './model';
-import { exportPack, openFromLink } from './packio';
+import { type OpenedPack, exportFolderName, exportPack, importPackZip, openFromLink } from './packio';
 import { sliceToZip } from './slicer';
+import { imageFromTiles } from './tiles';
 
 // ---- State ------------------------------------------------------------------
 
@@ -47,6 +48,13 @@ const state = {
   status: '',
   /** Ids created in the studio and not yet exported ("kind:id"); they follow their names. */
   fresh: new Set<string>(),
+  /** Existing tile zips (from an imported zip or loaded per map), carried through on export. */
+  keptTiles: {} as Record<string, Blob>,
+  /** Where the open pack came from: sets the export folder name. */
+  origin: undefined as { folder: string; fromZip: boolean } | undefined,
+  exportFolder: '',
+  /** Packs found in an imported zip, waiting for the user to pick one. */
+  choices: [] as OpenedPack[],
 };
 
 function restore() {
@@ -296,22 +304,69 @@ const live = (change: () => void) => {
 };
 
 // -- Pack
+function loadOpened(opened: OpenedPack, fromZip: boolean) {
+  update(() => {
+    for (const img of Object.values(state.images)) URL.revokeObjectURL(img.url);
+    state.pack = opened.pack;
+    state.markers = opened.markers;
+    state.images = {};
+    state.keptTiles = { ...(opened.tileZips ?? {}) };
+    state.fresh.clear();
+    state.choices = [];
+    state.origin = { folder: opened.folder, fromZip };
+    state.exportFolder = exportFolderName(opened, opened.pack);
+    state.activeMap = opened.pack.maps[0]?.id;
+    fittedFor = undefined;
+    const withTiles = Object.keys(state.keptTiles).length;
+    state.status = fromZip
+      ? `Opened ${opened.pack.name}${withTiles ? `; rebuilding ${withTiles} map image(s) from their tiles…` : '.'}`
+      : `Opened ${opened.pack.name}. To see a map, use "Load tiles zip" in the Maps tab ` +
+        '(GitHub doesn\'t let websites read release downloads), or open the pack as a zip.';
+  });
+  for (const m of opened.pack.maps) {
+    if (state.keptTiles[m.id]) void showTiles(m);
+  }
+}
+
+/** Rebuilds a map's image from its tile zip so it can be seen and edited. */
+async function showTiles(m: MapDef) {
+  try {
+    const blob = await imageFromTiles(state.keptTiles[m.id], m);
+    const bitmap = await createImageBitmap(blob);
+    update(() => {
+      state.images[m.id] = { url: URL.createObjectURL(blob), bitmap, width: bitmap.width, height: bitmap.height, buildTiles: false };
+      if (state.status.includes('rebuilding')) state.status = `Opened ${state.pack.name}.`;
+      if (m.id === state.activeMap) fittedFor = undefined;
+    });
+  } catch (e) {
+    update(() => (state.status = `${m.name}: ${(e as Error).message}`), false);
+  }
+}
+
+function zipPicker(onFile: (f: File) => void) {
+  const input = h('input', { type: 'file', accept: '.zip,application/zip' });
+  input.addEventListener('change', () => input.files?.[0] && onFile(input.files[0]));
+  input.click();
+}
+
+async function openZip(file: File) {
+  try {
+    update(() => (state.status = `Reading ${file.name}…`), false);
+    const found = await importPackZip(file);
+    if (found.length === 1) loadOpened(found[0], true);
+    else update(() => ((state.choices = found), (state.status = `${found.length} packs in that zip: pick one.`)), false);
+  } catch (e) {
+    update(() => (state.status = (e as Error).message), false);
+  }
+}
+
 function packTab() {
   const p = state.pack;
   const link = h('input', { type: 'text', placeholder: 'owner/repo/folder' });
   const open = async () => {
     try {
       update(() => (state.status = 'Opening…'), false);
-      const opened = await openFromLink(link.value);
-      update(() => {
-        state.pack = opened.pack;
-        state.markers = opened.markers;
-        state.images = {};
-        state.fresh.clear();
-        state.activeMap = opened.pack.maps[0]?.id;
-        fittedFor = undefined;
-        state.status = `Opened ${opened.pack.name}. To see a map, add its image in the Maps tab (GitHub doesn't let websites read release downloads).`;
-      });
+      loadOpened(await openFromLink(link.value), false);
     } catch (e) {
       update(() => (state.status = (e as Error).message), false);
     }
@@ -328,8 +383,19 @@ function packTab() {
     keyed(field('Description', p.description ?? '', (v) => live(() => (p.description = v)), { multiline: true }), 'p.desc'),
     keyed(field('Wiki base URL', p.wiki ?? '', (v) => live(() => (p.wiki = v || undefined)),
       { placeholder: 'https://example.wiki/w/', hint: 'Optional. Types and markers can then link wiki pages by name.' }), 'p.wiki'),
-    h('h3', {}, 'Open a published pack'),
-    h('div', { class: 'row' }, link, h('button', { onclick: open }, 'Open')),
+    h('h3', {}, 'Open a pack'),
+    h('p', { class: 'help' },
+      'A zip of the pack folder (or a whole repo from GitHub\'s Code → Download ZIP). ' +
+      'Include out/*-tiles.zip to see the maps straight away.'),
+    h('button', { onclick: () => zipPicker(openZip) }, icon('folder_zip'), 'Open a pack zip'),
+    state.choices.length
+      ? h('div', { class: 'card editing' },
+        h('small', { class: 'muted' }, 'This zip has several packs:'),
+        ...state.choices.map((c) => h('button', { class: 'item', onclick: () => loadOpened(c, true) },
+          icon('inventory_2'), `${c.pack.name}`, h('small', { class: 'muted' }, ` ${c.folder || '(top level)'}`))))
+      : null,
+    h('p', { class: 'help' }, 'Or load just pack.json and markers from GitHub:'),
+    h('div', { class: 'row' }, link, h('button', { onclick: open }, 'Open link')),
     h('h3', {}, 'Start over'),
     h('button', {
       class: 'danger',
@@ -339,6 +405,10 @@ function packTab() {
           state.markers = {};
           state.images = {};
           state.fresh.clear();
+          state.keptTiles = {};
+          state.origin = undefined;
+          state.exportFolder = '';
+          state.choices = [];
           state.activeMap = undefined;
           state.status = '';
         }),
@@ -450,6 +520,14 @@ function mapsTab() {
               update(() => (img.buildTiles = (e.target as HTMLInputElement).checked), false) }),
             'Build new tiles from this image on export')
           : h('small', { class: 'warn' }, 'No image loaded: markers show on a blank outline.'),
+        !img
+          ? h('button', {
+            onclick: () => zipPicker((f) => {
+              state.keptTiles[m.id] = f;
+              void showTiles(m);
+            }),
+          }, icon('folder_zip'), 'Load tiles zip')
+          : null,
         h('div', { class: 'row' },
           h('button', { onclick: () => filePicker((f) => addImage(f, m)) }, icon('image'), img ? 'Replace image' : 'Add image'),
           h('button', {
@@ -593,11 +671,18 @@ function exportTab() {
         (progress.textContent = `Making tiles for ${m.name}: ${done} / ${total}`));
     }
     progress.textContent = 'Packing…';
-    const blob = await exportPack(state.pack, state.markers, tileZips);
-    const a = h('a', { href: URL.createObjectURL(blob), download: `${state.pack.id}.zip` });
+    const folderName = state.exportFolder || state.pack.id;
+    const blob = await exportPack(state.pack, state.markers, tileZips, {
+      folderName,
+      keptTiles: state.keptTiles,
+      notes: !state.origin, // a pack that came from a repo doesn't need the how-to file
+    });
+    const a = h('a', { href: URL.createObjectURL(blob), download: `${folderName}.zip` });
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    progress.textContent = 'Downloaded. See PUBLISHING.md inside the zip for the next steps.';
+    progress.textContent = state.origin
+      ? `Downloaded. Unzip it over your repo's "${folderName}" folder, check git diff, then commit.`
+      : 'Downloaded. See PUBLISHING.md inside the zip for the next steps.';
     state.fresh.clear(); // ids are now out in the world: keep them fixed
     save();
   };
@@ -610,6 +695,8 @@ function exportTab() {
       toBuild.length
         ? `Tiles will be made for: ${toBuild.map((m) => m.name).join(', ')}. Big images take a minute.`
         : 'No new tiles to make; existing tile links in pack.json are kept.'),
+    keyed(field('Folder name', state.exportFolder || state.pack.id, (v) => (state.exportFolder = v.trim()),
+      { hint: 'The zip unpacks to this folder, e.g. "silksong" to drop straight into demo_maps.' }), 'x.folder'),
     h('button', { class: 'primary', disabled: errors.length > 0, onclick: run }, icon('download'), 'Download pack (.zip)'),
     progress,
     h('button', {

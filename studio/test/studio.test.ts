@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORY_ICONS } from '../src/icons';
 import { packFolderCandidates } from '../src/location';
 import { mapForImage, nativeMaxZoom, newPack, slugify, uniqueId, validate, type Marker } from '../src/model';
-import { exportPack, openFromLink } from '../src/packio';
+import { exportFolderName, exportPack, importPackZip, openFromLink } from '../src/packio';
+import { tilePattern } from '../src/tiles';
 import { pyramid, tileCount } from '../src/slicer';
 
 const repo = resolve(__dirname, '../..');
@@ -115,5 +116,64 @@ describe('packs in and out', () => {
     expect(out.maps[0].tiles).toMatchObject({ archive: 'out/w-tiles.zip', archiveBytes: 5 });
     expect(out.maps[1].tiles.archive).toBe('https://github.com/me/r/releases/download/t/v-tiles.zip');
     expect(pack.maps[0].tiles.archiveBytes).toBeUndefined(); // the editor's copy isn't mutated
+  });
+});
+
+describe('zip round trip', () => {
+  // A repo zip like GitHub's "Download ZIP": two packs in subfolders, one with local tiles.
+  async function repoZip() {
+    const zip = new JSZip();
+    const silk = { ...newPack(), id: 'me.silksong', maps: [mapForImage('world', 'World', 300, 200)] };
+    silk.maps[0].tiles.archive = 'https://github.com/me/demo_maps/releases/download/silksong-v1.0.0/world-tiles.zip';
+    zip.file('demo_maps-main/silksong/pack.json', JSON.stringify(silk));
+    zip.file('demo_maps-main/silksong/markers/world.json', JSON.stringify([{ id: 'b', name: 'Bench', x: 5, y: 6 }]));
+    zip.file('demo_maps-main/silksong/out/world-tiles.zip', 'TILES');
+    const other = { ...newPack(), id: 'me.other', maps: [mapForImage('m', 'M', 10, 10)] };
+    zip.file('demo_maps-main/other/pack.json', JSON.stringify(other));
+    zip.file('demo_maps-main/README.md', '# not a pack');
+    return zip.generateAsync({ type: 'arraybuffer' });
+  }
+
+  it('finds every pack, its markers and its local tiles', async () => {
+    const packs = await importPackZip(await repoZip());
+    expect(packs.map((p) => [p.pack.id, p.folder])).toEqual([
+      ['me.other', 'demo_maps-main/other/'],
+      ['me.silksong', 'demo_maps-main/silksong/'],
+    ]);
+    const silk = packs[1];
+    expect(silk.markers.world[0].name).toBe('Bench');
+    expect(await silk.tileZips!.world.text()).toBe('TILES');
+    expect(exportFolderName(silk, silk.pack)).toBe('silksong');
+    expect(packs[0].tileZips).toEqual({});
+  });
+
+  it('exports back into the same folder, keeping release links and tiles', async () => {
+    const silk = (await importPackZip(await repoZip()))[1];
+    silk.markers.world.push({ id: 'n', name: 'New', x: 1, y: 1 });
+    const out = await exportPack(silk.pack, silk.markers, {}, {
+      folderName: 'silksong', keptTiles: silk.tileZips, notes: false,
+    });
+    const zip = await JSZip.loadAsync(await out.arrayBuffer());
+    expect(Object.keys(zip.files).filter((f) => !f.endsWith('/')).sort()).toEqual([
+      'silksong/markers/world.json', 'silksong/out/world-tiles.zip', 'silksong/pack.json',
+    ]);
+    const again = (await importPackZip(await out.arrayBuffer()))[0];
+    expect(again.pack.maps[0].tiles.archive).toBe(silk.pack.maps[0].tiles.archive);
+    expect(again.markers.world.map((m) => m.id)).toEqual(['b', 'n']);
+    expect(await again.tileZips!.world.text()).toBe('TILES');
+  });
+
+  it('rejects zips without a TOME pack', async () => {
+    const zip = new JSZip();
+    zip.file('a/pack.json', '{"name": "npm thing"}');
+    await expect(importPackZip(await zip.generateAsync({ type: 'arraybuffer' }))).rejects.toThrow(/aren't TOME packs/);
+  });
+
+  it('tile paths match the map\'s template at one zoom', () => {
+    const re = tilePattern('{z}/{x}/{y}.png', 3);
+    expect(re.exec('3/12/7.png')?.groups).toEqual({ x: '12', y: '7' });
+    expect(re.exec('world-tiles/3/1/2.png')?.groups).toEqual({ x: '1', y: '2' });
+    expect(re.exec('2/1/1.png')).toBeNull();
+    expect(re.exec('3/1/1.pngx')).toBeNull();
   });
 });
