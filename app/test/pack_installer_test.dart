@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
+import 'package:tome/pack/pack.dart';
 import 'package:tome/pack/pack_installer.dart';
 
 const raw = 'https://raw.githubusercontent.com/a/maps';
@@ -155,5 +156,47 @@ void main() {
     expect(await hasLocalMarkerEdits(pack), isFalse);
     File(p.join(pack.dir, 'markers', 'world.json')).writeAsStringSync('[]');
     expect(await hasLocalMarkerEdits(pack), isTrue);
+  });
+
+  test('a pack with no source asks for a link, then remembers it', () async {
+    final server = FakeServer();
+    final pack = await installRemotePack(
+        await fetchRemotePack('a/maps/silksong', client: server.client),
+        client: server.client, root: root);
+    File(p.join(pack.dir, '.source.json')).deleteSync(); // as if sideloaded
+
+    await expectLater(checkForUpdate(pack, client: server.client), throwsA(isA<PackNeedsLink>()));
+    expect(await checkForUpdate(pack, link: 'a/maps/silksong', client: server.client), isNull);
+    expect(await installedFrom(pack), 'a/maps/silksong');
+    expect(await checkForUpdate(pack, client: server.client), isNull, reason: 'remembered');
+  });
+
+  test('guesses a link from release URLs named by publish_pack', () {
+    final m = PackManifest.fromJson(jsonDecode(manifest()) as Map<String, dynamic>);
+    expect(guessPackLink(m), 'a/maps', reason: 'tag "v1" has no folder prefix');
+    final named = PackManifest.fromJson({
+      ...jsonDecode(manifest()) as Map<String, dynamic>,
+      'maps': [
+        {
+          'id': 'w',
+          'name': 'W',
+          'image': {'width': 1, 'height': 1},
+          'maxZoom': 0,
+          'tiles': {
+            'archive': 'https://github.com/rahulskann/demo_maps/releases/download/silksong-v0.8.0/w.zip',
+            'path': '{z}/{x}/{y}.png',
+          },
+        },
+      ],
+    });
+    expect(guessPackLink(named), 'rahulskann/demo_maps/silksong');
+    final local = PackManifest.fromJson({
+      ...jsonDecode(manifest()) as Map<String, dynamic>,
+      'maps': [
+        {'id': 'w', 'name': 'W', 'image': {'width': 1, 'height': 1},
+         'maxZoom': 0, 'tiles': {'archive': 'out/w.zip', 'path': '{z}/{x}/{y}.png'}},
+      ],
+    });
+    expect(guessPackLink(local), isNull);
   });
 }

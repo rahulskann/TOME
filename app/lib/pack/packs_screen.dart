@@ -62,11 +62,49 @@ class _PacksScreenState extends State<PacksScreen> {
     }
   }
 
-  Future<void> _checkForUpdate(InstalledPack pack) async {
+  /// Asks where [pack] is published, prefilled with a guess.
+  Future<String?> _askForLink(InstalledPack pack) {
+    final controller = TextEditingController(text: guessPackLink(pack.manifest));
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Where is ${pack.manifest.name} published?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This copy wasn\'t added from a link, so enter the link it\'s published at. '
+                'It\'s remembered for next time.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: const InputDecoration(
+                labelText: 'Pack link',
+                hintText: 'owner/repo/folder',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Check'),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
+  }
+
+  Future<void> _checkForUpdate(InstalledPack pack, {String? link}) async {
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(const SnackBar(content: Text('Checking for updates…')));
     try {
-      final update = await checkForUpdate(pack);
+      final update = await checkForUpdate(pack, link: link);
       messenger.hideCurrentSnackBar();
       if (!mounted) return;
       if (update == null) {
@@ -82,6 +120,13 @@ class _PacksScreenState extends State<PacksScreen> {
         _reload();
         messenger.showSnackBar(SnackBar(
             content: Text('Updated ${installed.manifest.name} to v${installed.manifest.version}')));
+      }
+    } on PackNeedsLink {
+      messenger.hideCurrentSnackBar();
+      if (!mounted) return;
+      final entered = await _askForLink(pack);
+      if (entered != null && entered.isNotEmpty && mounted) {
+        await _checkForUpdate(pack, link: entered);
       }
     } on PackFetchException catch (e) {
       messenger

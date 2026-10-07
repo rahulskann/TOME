@@ -45,6 +45,13 @@ class PackFetchException implements Exception {
   String toString() => message;
 }
 
+/// The pack has no record of where it's published (e.g. it was sideloaded),
+/// so its link has to be given to check for updates.
+class PackNeedsLink extends PackFetchException {
+  const PackNeedsLink()
+      : super('This pack doesn\'t know where it\'s published. Enter its link to check for updates.');
+}
+
 class InstallCancelled implements Exception {
   const InstallCancelled();
 }
@@ -259,16 +266,39 @@ Future<String?> installedFrom(InstalledPack pack) async {
 bool isBundled(InstalledPack pack) => File(p.join(pack.dir, bundledFileName)).existsSync();
 
 /// The newer version of [pack] if its source has one, else null.
-Future<RemotePack?> checkForUpdate(InstalledPack pack, {http.Client? client}) async {
-  final input = await installedFrom(pack);
-  if (input == null) {
-    throw const PackFetchException('This pack wasn\'t downloaded from a link, so it can\'t be updated here.');
-  }
+///
+/// Uses the link the pack was installed from, or [link] when given (which is
+/// then remembered). Throws [PackNeedsLink] if there's neither.
+Future<RemotePack?> checkForUpdate(InstalledPack pack, {String? link, http.Client? client}) async {
+  final input = link ?? await installedFrom(pack);
+  if (input == null) throw const PackNeedsLink();
   final remote = await fetchRemotePack(input, client: client);
   if (remote.manifest.id != pack.manifest.id) {
-    throw PackFetchException('The link now holds a different pack (${remote.manifest.id}).');
+    throw PackFetchException('That link holds a different pack (${remote.manifest.id}).');
   }
+  if (link != null) await rememberSource(pack, link);
   return remote.manifest.version == pack.manifest.version ? null : remote;
+}
+
+/// Records where [pack] is published, for future update checks.
+Future<void> rememberSource(InstalledPack pack, String input) =>
+    File(p.join(pack.dir, sourceFileName)).writeAsString(jsonEncode({
+      'input': input.trim(),
+      'rememberedAt': DateTime.now().toUtc().toIso8601String(),
+    }));
+
+/// A best guess at a pack's link from its own release URLs:
+/// `github.com/<owner>/<repo>/releases/download/<folder>-v<version>/...` gives
+/// `owner/repo/folder` (the tag naming tools/publish_pack.py uses).
+String? guessPackLink(PackManifest manifest) {
+  final release = RegExp(r'^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/');
+  for (final map in manifest.maps) {
+    final m = release.firstMatch(map.tilesArchive);
+    if (m == null) continue;
+    final folder = RegExp(r'^(.+)-v\d').firstMatch(m.group(3)!)?.group(1);
+    return [m.group(1)!, m.group(2)!, ?folder].join('/');
+  }
+  return null;
 }
 
 /// True if markers were changed on this device since the pack was installed,

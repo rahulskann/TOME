@@ -13,6 +13,7 @@ Pull down to refresh the pack list in the app afterwards.
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -35,6 +36,18 @@ def find_adb() -> str:
     return found
 
 
+def guess_pack_link(manifest: dict) -> str | None:
+    """owner/repo/folder from a release URL named <folder>-v<version> (as publish_pack.py does)."""
+    for m in manifest["maps"]:
+        match = re.match(r"^https://github\.com/([^/]+)/([^/]+)/releases/download/([^/]+)/",
+                         m["tiles"]["archive"])
+        if match:
+            owner, repo, tag = match.groups()
+            folder = re.match(r"^(.+)-v\d", tag)
+            return "/".join([owner, repo] + ([folder.group(1)] if folder else []))
+    return None
+
+
 def stage(pack_dir: Path, out: Path) -> dict:
     """Write the installed layout for pack_dir into out. Returns the manifest."""
     manifest_text = (pack_dir / "pack.json").read_text(encoding="utf-8")
@@ -54,6 +67,11 @@ def stage(pack_dir: Path, out: Path) -> dict:
             snapshot = out / SNAPSHOT_DIR / m["markers"]
             snapshot.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(pack_dir / m["markers"], snapshot)
+    # Record where the pack is published (from its release URLs), so the app's
+    # "Check for update" works on sideloaded packs too.
+    link = guess_pack_link(manifest)
+    if link:
+        (out / ".source.json").write_text(json.dumps({"input": link, "sideloaded": True}), encoding="utf-8")
     # Written last, matching the app: a pack folder without pack.json is incomplete.
     (out / "pack.json").write_text(manifest_text, encoding="utf-8")
     return manifest
