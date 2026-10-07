@@ -83,6 +83,8 @@ input[type='color'] { width: 36px; height: 32px; border: none; background: none;
 .item.active { border-color: var(--accent); background: var(--card); }
 
 .status { margin: 0 14px 6px; padding: 8px 10px; border-radius: 8px; background: #2a2f43; color: var(--text); line-height: 1.4; }
+.progress-lines { white-space: pre-line; color: var(--muted); font-size: 12px; }
+.progress-lines:empty { display: none; }
 .mode {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 14px 8px; padding: 8px 10px;
   border-radius: 8px; background: #3b3220; color: #ffd98a;

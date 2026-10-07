@@ -17,6 +17,7 @@ import {
 } from './model';
 import { type OpenedPack, exportFolderName, exportPack, importPackZip, openFromLink } from './packio';
 import { sliceToZip } from './slicer';
+import { fetchViaRelay, relayable } from './relay';
 import { imageFromTiles } from './tiles';
 
 // ---- State ------------------------------------------------------------------
@@ -268,7 +269,10 @@ function renderSidebar() {
         h('button', { class: state.tab === id ? 'active' : '', onclick: () => update(() => (state.tab = id), false) },
           icon(ic), label)),
     ),
-    state.status ? h('div', { class: 'status' }, state.status) : null,
+    state.status || progressLines.size
+      ? h('div', { class: 'status' }, state.status,
+        h('div', { class: 'progress-lines' }, [...progressLines.values()].join('\n')))
+      : null,
     modeBanner(),
     h('div', { class: 'tab-body' }, body),
   ];
@@ -318,10 +322,11 @@ function loadOpened(opened: OpenedPack, fromZip: boolean) {
     state.activeMap = opened.pack.maps[0]?.id;
     fittedFor = undefined;
     const withTiles = Object.keys(state.keptTiles).length;
-    const missing = opened.pack.maps.length - withTiles;
+    const fromRelease = opened.pack.maps.filter((m) => !state.keptTiles[m.id] && relayable(m.tiles.archive));
+    const missing = opened.pack.maps.length - withTiles - fromRelease.length;
     state.status = [
       `Opened ${opened.pack.name}.`,
-      withTiles ? `Rebuilding ${withTiles} map image(s) from their tiles…` : '',
+      withTiles + fromRelease.length ? 'Loading map images…' : '',
       missing
         ? `${missing} map(s) have no tiles here (GitHub keeps them in releases, not in the repo or its ` +
           'Download ZIP). In the Maps tab, use "Get tiles from release", then "Load tiles zip".'
@@ -330,7 +335,34 @@ function loadOpened(opened: OpenedPack, fromZip: boolean) {
   });
   for (const m of opened.pack.maps) {
     if (state.keptTiles[m.id]) void showTiles(m);
+    else if (relayable(m.tiles.archive)) void loadFromRelease(m);
   }
+}
+
+/** Fetches a map's tile zip from its GitHub release (via the relay) and shows it. */
+async function loadFromRelease(m: MapDef) {
+  try {
+    const blob = await fetchViaRelay(m.tiles.archive, (got, total) => {
+      const mb = (n: number) => (n / 1048576).toFixed(1);
+      setProgress(m.id, `${m.name}: downloading ${mb(got)}${total ? ` / ${mb(total)}` : ''} MB`);
+    });
+    state.keptTiles[m.id] = blob;
+    setProgress(m.id, `${m.name}: building the image…`);
+    await showTiles(m);
+  } catch (e) {
+    update(() => (state.status = `${m.name}: ${(e as Error).message}`), false);
+  } finally {
+    setProgress(m.id, undefined);
+  }
+}
+
+/** Per-map progress lines, shown in the status box without re-rendering on every chunk. */
+const progressLines = new Map<string, string>();
+function setProgress(mapId: string, line: string | undefined) {
+  if (line) progressLines.set(mapId, line);
+  else progressLines.delete(mapId);
+  const box = sidebar.querySelector<HTMLElement>('.progress-lines');
+  if (box) box.textContent = [...progressLines.values()].join('\n');
 }
 
 /** Rebuilds a map's image from its tile zip so it can be seen and edited. */
@@ -340,7 +372,9 @@ async function showTiles(m: MapDef) {
     const bitmap = await createImageBitmap(blob);
     update(() => {
       state.images[m.id] = { url: URL.createObjectURL(blob), bitmap, width: bitmap.width, height: bitmap.height, buildTiles: false };
-      state.status = state.status.replace(/Rebuilding \d+ map image\(s\) from their tiles…\s*/, '');
+      if (![...progressLines.keys()].some((id) => id !== m.id)) {
+        state.status = state.status.replace(/(Loading map images…|Rebuilding .* from its tiles…)\s*/, '');
+      }
       if (m.id === state.activeMap) fittedFor = undefined;
     });
   } catch (e) {
@@ -525,10 +559,12 @@ function mapsTab() {
               update(() => (img.buildTiles = (e.target as HTMLInputElement).checked), false) }),
             'Build new tiles from this image on export')
           : h('small', { class: 'warn' }, 'No image loaded: markers show on a blank outline.'),
-        !img && /^https?:\/\//.test(m.tiles.archive)
-          ? h('a', { class: 'button', href: m.tiles.archive, target: '_blank', rel: 'noopener' },
-            icon('cloud_download'), 'Get tiles from release')
-          : null,
+        !img && relayable(m.tiles.archive)
+          ? h('button', { onclick: () => void loadFromRelease(m) }, icon('cloud_download'), 'Load from release')
+          : !img && /^https?:\/\//.test(m.tiles.archive)
+            ? h('a', { class: 'button', href: m.tiles.archive, target: '_blank', rel: 'noopener' },
+              icon('cloud_download'), 'Get tiles from release')
+            : null,
         !img
           ? h('button', {
             onclick: () => zipPicker((f) => {
