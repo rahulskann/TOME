@@ -137,9 +137,16 @@ zooming out swaps back:
 ```
 
 Each point is `[overviewX, overviewY, detailX, detailY]`; at least 2, and more give a closer
-match. Positions between points are blended from the nearest ones, so the two maps don't need
+match. Add `"regions": ["bone_bottom", ...]` (ids of outlined overview regions) when the
+detailed map only covers part of the world so far: zooming in elsewhere stays on the
+overview instead of showing empty space, and the covered regions are outlined. Positions between points are blended from the nearest ones, so the two maps don't need
 to share geometry. Prefer this over region maps when you have a detailed map of everything:
 region maps show only their region, with gaps around it.
+
+If your detailed art comes as separate per-region images, place them on one canvas with
+`tools/compose_map.py` (a small JSON layout of image positions) and slice the result: the
+regions then line up with their neighbours. Keep the canvas size fixed as you add regions
+so marker positions never change.
 
 ### Category icons
 

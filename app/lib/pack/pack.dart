@@ -306,8 +306,11 @@ class MapDefinition {
 /// the nearest matching points (inverse-distance weighting), using the overall
 /// scale between the maps for the offset from each point.
 class ZoomLink {
-  ZoomLink({required this.map, required List<(double, double, double, double)> points})
-      : points = List.unmodifiable(points) {
+  ZoomLink({
+    required this.map,
+    required List<(double, double, double, double)> points,
+    this.regions,
+  }) : points = List.unmodifiable(points) {
     if (points.length < 2) {
       throw FormatException('zoomsInto needs at least 2 matching points');
     }
@@ -319,8 +322,21 @@ class ZoomLink {
   /// Matching points: (x, y) on this map and (x, y) on the detailed map.
   final List<(double, double, double, double)> points;
 
+  /// Ids of this map's regions the detailed map covers. When set, zooming in
+  /// only continues on the detailed map inside these regions' outlines, so a
+  /// detailed map that's still being filled in never shows empty space.
+  final List<String>? regions;
+
+  /// Whether zooming in at (x, y) on [overview] should continue on the detail.
+  bool covers(MapDefinition overview, double x, double y) {
+    final ids = regions;
+    if (ids == null) return true;
+    return overview.regions.any((r) => ids.contains(r.id) && r.contains(x, y));
+  }
+
   factory ZoomLink.fromJson(Map<String, dynamic> json) => ZoomLink(
         map: json['map'] as String,
+        regions: (json['regions'] as List?)?.cast<String>(),
         points: [
           for (final p in (json['points'] as List).cast<List<dynamic>>())
             (

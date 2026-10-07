@@ -78,8 +78,8 @@ class _MapScreenState extends State<MapScreen> {
       ImageCoords(maxZoom: _map.maxZoom, width: _map.imageWidth, height: _map.imageHeight);
 
   /// Regions of the current map whose target map exists in this pack.
-  Iterable<MapRegion> get _regions =>
-      _map.regions.where((r) => _manifest.map(r.map) != null);
+  Iterable<MapRegion> get _regions => _map.regions.where((r) =>
+      _manifest.map(r.map) != null || (_map.zoomsInto?.regions?.contains(r.id) ?? false));
 
   /// The map that zooming out of this one returns to, and how to get there.
   _ParentLink? get _parent {
@@ -208,7 +208,15 @@ class _MapScreenState extends State<MapScreen> {
                 } else if (!_editing) {
                   final (x, y) = coords.toPixel(point);
                   final region = _regionAt(x, y);
-                  if (region != null) _enterRegion(region, x, y, _controller.camera.zoom);
+                  final zoom = _controller.camera.zoom;
+                  if (region != null) {
+                    _enterRegion(region, x, y, zoom);
+                  } else if (_detailMap != null &&
+                      // Tapping only enters outlined covered regions, not anywhere.
+                      _map.zoomsInto!.regions != null &&
+                      _map.zoomsInto!.covers(_map, x, y)) {
+                    _enterDetail(x, y, zoom);
+                  }
                 }
               },
             ),
@@ -347,8 +355,9 @@ class _MapScreenState extends State<MapScreen> {
 
   // ---- Regions & map switching -----------------------------------------
 
+  /// The region at (x, y) that opens a map of its own, if any.
   MapRegion? _regionAt(double x, double y) {
-    for (final r in _regions) {
+    for (final r in _regions.where((r) => _manifest.map(r.map) != null)) {
       if (r.contains(x, y)) return r;
     }
     return null;
@@ -359,7 +368,10 @@ class _MapScreenState extends State<MapScreen> {
     final (x, y) = _coords.toPixel(camera.center);
     final pastDetail = camera.zoom > _map.maxZoom + 0.25;
     final region = pastDetail ? _regionAt(x, y) : null;
-    final detail = pastDetail && region == null && _detailMap != null;
+    final detail = pastDetail &&
+        region == null &&
+        _detailMap != null &&
+        _map.zoomsInto!.covers(_map, x, y);
     if (region != _approaching || detail != _approachingDetail) {
       setState(() {
         _approaching = region;

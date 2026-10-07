@@ -78,4 +78,32 @@ void main() {
   test('needs at least two points', () {
     expect(() => ZoomLink.fromJson({'map': 'x', 'points': [[0, 0, 0, 0]]}), throwsFormatException);
   });
+
+  test('covers: only inside listed regions when regions are given', () {
+    final m = PackManifest.fromJson({
+      'schemaVersion': 1,
+      'id': 'q',
+      'name': 'Q',
+      'version': '1',
+      'maps': [
+        {
+          ..._map('overview', 1000, 800, 2, zoomsInto: {
+            'map': 'detail',
+            'points': points,
+            'regions': ['cave'],
+          }),
+          'regions': [
+            {'id': 'cave', 'name': 'Cave', 'outline': [[0, 0], [200, 0], [200, 200], [0, 200]]},
+            {'id': 'lake', 'name': 'Lake', 'outline': [[500, 500], [700, 500], [700, 700]]},
+          ],
+        },
+        _map('detail', 4000, 3200, 4),
+      ],
+    });
+    final o = m.map('overview')!;
+    expect(o.zoomsInto!.covers(o, 100, 100), isTrue);
+    expect(o.zoomsInto!.covers(o, 650, 520), isFalse, reason: 'lake is not covered');
+    expect(o.zoomsInto!.covers(o, 400, 400), isFalse);
+    expect(link.covers(overview, 400, 400), isTrue, reason: 'no list means everywhere');
+  });
 }
