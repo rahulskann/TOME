@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../about.dart';
@@ -31,7 +33,18 @@ class _PacksScreenState extends State<PacksScreen> {
     for (final pack in packs) {
       _progress[pack.manifest.id] ??= await ProgressStore.load(pack.manifest.id);
     }
+    unawaited(_fetchMissingIcons(packs));
     return packs;
+  }
+
+  /// Packs installed before the app knew about custom icons (or while offline)
+  /// get them in the background; the list redraws once they arrive.
+  Future<void> _fetchMissingIcons(List<InstalledPack> packs) async {
+    var got = 0;
+    for (final pack in packs) {
+      got += await fetchMissingIcons(pack).catchError((_) => 0);
+    }
+    if (got > 0 && mounted) _reload();
   }
 
   Future<void> _open(InstalledPack pack) async {

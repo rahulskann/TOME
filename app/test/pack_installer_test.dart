@@ -129,7 +129,20 @@ void main() {
     expect(server.requests.map((r) => r.url.path), isNot(contains(endsWith('escape.png'))));
   });
 
-  test('resumes a partial download with a Range request', () async {
+  test('fetches icons missing from an already-installed pack', () async {
+    final server = FakeServer();
+    final remote = await fetchRemotePack('a/maps/silksong', client: server.client);
+    final pack = await installRemotePack(remote, client: server.client, root: root);
+    final icon = File(pack.manifest.category('shard')!.iconFile!);
+    icon.deleteSync(); // as if installed by an app that didn't know about icons
+
+    expect(await fetchMissingIcons(pack, client: server.client), 1);
+    expect(icon.readAsBytesSync(), [1, 2, 3]);
+    // The one that's missing on the server too is tried, not fatal; nothing else is fetched.
+    expect(await fetchMissingIcons(pack, client: server.client), 0);
+  });
+
+    test('resumes a partial download with a Range request', () async {
     final server = FakeServer();
     final remote = await fetchRemotePack('a/maps/silksong', client: server.client);
     final part = File(p.join(root.path, '.downloads', 'a.pack', 'world-1.0.0.zip.part'));

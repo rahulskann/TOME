@@ -178,20 +178,8 @@ Future<InstalledPack> installRemotePack(
       }
     }
 
-    // Custom type icons. Optional: a missing one falls back to the built-in icon.
-    final icons = {for (final cat in remote.manifest.categories) ?cat.iconImage};
-    if (icons.isNotEmpty) report('Downloading icons');
-    for (final path in icons) {
-      try {
-        final resp = await c.get(resolveInPack(remote.folder, path));
-        if (resp.statusCode != 200) continue;
-        final out = File(p.joinAll([staging.path, ...path.split('/')]));
-        await out.parent.create(recursive: true);
-        await out.writeAsBytes(resp.bodyBytes);
-      } on http.ClientException {
-        continue;
-      }
-    }
+    if (remote.manifest.categories.any((cat) => cat.iconImage != null)) report('Downloading icons');
+    await _downloadIcons(c, remote.folder, remote.manifest.categories.map((cat) => cat.iconImage), staging.path);
 
     await File(p.join(staging.path, sourceFileName)).writeAsString(jsonEncode({
       'input': remote.input,
@@ -260,6 +248,57 @@ Future<void> _download(
     throw const PackFetchException('Lost the connection. Try again to resume the download.');
   } finally {
     await sink.close();
+  }
+}
+
+/// Downloads custom type icons into [dir]. Optional: a missing one falls back
+/// to the built-in icon, so failures are skipped. Returns how many arrived.
+Future<int> _downloadIcons(http.Client c, Uri folder, Iterable<String?> paths, String dir) async {
+  var got = 0;
+  for (final path in {...paths.nonNulls}) {
+    try {
+      final resp = await c.get(resolveInPack(folder, path));
+      if (resp.statusCode != 200) continue;
+      final out = File(p.joinAll([dir, ...path.split('/')]));
+      await out.parent.create(recursive: true);
+      await out.writeAsBytes(resp.bodyBytes);
+      got++;
+    } on SocketException {
+      continue;
+    } on http.ClientException {
+      continue;
+    }
+  }
+  return got;
+}
+
+/// Fetches custom icons a downloaded pack names but doesn't have yet, e.g. a
+/// pack installed before the app knew about icons. Returns how many arrived.
+Future<int> fetchMissingIcons(InstalledPack pack, {http.Client? client}) async {
+  final missing = [
+    for (final cat in pack.manifest.categories)
+      if (cat.iconFile != null && !File(cat.iconFile!).existsSync()) cat.iconImage,
+  ];
+  if (missing.isEmpty) return 0;
+  final folder = await _installedFolder(pack);
+  if (folder == null) return 0;
+  final c = client ?? http.Client();
+  try {
+    return await _downloadIcons(c, folder, missing, pack.dir);
+  } finally {
+    if (client == null) c.close();
+  }
+}
+
+/// The folder URL a pack was downloaded from (recorded at install).
+Future<Uri?> _installedFolder(InstalledPack pack) async {
+  final file = File(p.join(pack.dir, sourceFileName));
+  if (!await file.exists()) return null;
+  try {
+    final folder = (jsonDecode(await file.readAsString()) as Map<String, dynamic>)['folder'] as String?;
+    return folder == null ? null : Uri.parse(folder);
+  } on FormatException {
+    return null;
   }
 }
 
