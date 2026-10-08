@@ -6,14 +6,22 @@
 //   GET https://<worker>/?url=https://github.com/<owner>/<repo>/releases/download/<tag>/<file>.zip
 //
 // Set ALLOWED_ORIGINS (comma-separated) in the Worker's settings, e.g.
-//   https://tome.rahulkannan.com,https://tome-studio.vercel.app,http://localhost:5173
+//   https://tome.rahulkannan.com,https://*-me-projects.vercel.app,http://localhost:5173
 
 const RELEASE_ZIP = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\/download\/[^/?#]+\/[^/?#]+\.zip$/;
 
 export function allowedOrigin(origin, setting) {
   if (!origin) return null;
   const allowed = (setting ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  return allowed.includes(origin) ? origin : null;
+  return allowed.some((a) => matches(origin, a)) ? origin : null;
+}
+
+// An entry may use * for one DNS label part, e.g. https://*-me-projects.vercel.app
+// (Vercel's per-deployment links). * never matches a dot or slash.
+function matches(origin, entry) {
+  if (!entry.includes('*')) return origin === entry;
+  const pattern = entry.split('*').map((part) => part.replace(/[.+?^${}()|[\]\\/]/g, '\\$&')).join('[a-z0-9-]*');
+  return new RegExp(`^${pattern}$`).test(origin);
 }
 
 function withCors(response, origin) {

@@ -13,8 +13,8 @@ Free plan: 100,000 requests a day; files stream through, so large tile zips are 
 2. Name it `tome-relay` → **Deploy** → **Edit code**. Replace all the code with
    [`worker.js`](worker.js) → **Deploy**.
 3. Worker → **Settings → Variables and Secrets** → add a **Text** variable
-   `ALLOWED_ORIGINS` = `https://tome.rahulkannan.com,http://localhost:5173`
-   (add your `*.vercel.app` address too if you use it).
+   `ALLOWED_ORIGINS` = `https://tome.rahulkannan.com,https://*-rahul-kannan-s-projects.vercel.app,http://localhost:5173`
+   (`*` matches one part of a name without dots, so it covers Vercel's per-deployment links).
 4. Optional: **Settings → Domains & Routes → Add → Custom domain** `relay.rahulkannan.com`.
    Otherwise use the `https://tome-relay.<you>.workers.dev` address it shows.
 5. In Vercel → the studio project → **Settings → Environment Variables**, add

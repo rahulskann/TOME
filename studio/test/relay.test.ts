@@ -60,6 +60,11 @@ describe('tile relay worker', () => {
     expect(allowedOrigin('http://localhost:5173', ' http://localhost:5173 , https://x ')).toBe('http://localhost:5173');
     expect(allowedOrigin('https://y', 'https://x')).toBeNull();
     expect(allowedOrigin(null, 'https://x')).toBeNull();
+    const vercel = 'https://*-rahul-kannan-s-projects.vercel.app';
+    expect(allowedOrigin('https://tome-b74gflp74-rahul-kannan-s-projects.vercel.app', vercel)).not.toBeNull();
+    expect(allowedOrigin('https://evil.com/x-rahul-kannan-s-projects.vercel.app', vercel)).toBeNull();
+    expect(allowedOrigin('https://a.evil-rahul-kannan-s-projects.vercel.app', vercel)).toBeNull();
+    expect(allowedOrigin('https://x-rahul-kannan-s-projects.vercel.app.evil.com', vercel)).toBeNull();
   });
 });
 
@@ -70,5 +75,13 @@ describe('relay address', () => {
     expect(relayAddress(' https://r.example/ ')).toBe('https://r.example');
     expect(relayAddress('')).toBeUndefined();
     expect(relayAddress(undefined)).toBeUndefined();
+  });
+});
+
+describe('relay origin wildcards', () => {
+  it('treats dots literally', () => {
+    expect(allowedOrigin('https://axvercel.app', 'https://*.vercel.app')).toBeNull();
+    expect(allowedOrigin('https://tomeXrahulkannanXcom', 'https://tome.rahulkannan.com')).toBeNull();
+    expect(allowedOrigin('https://a-b.vercel.app', 'https://*.vercel.app')).toBe('https://a-b.vercel.app');
   });
 });
