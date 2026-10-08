@@ -9,8 +9,8 @@ Free plan: 100,000 requests a day; files stream through, so large tile zips are 
 
 ## Deploy (dashboard, no tools needed)
 
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Create Worker**.
-2. Name it `tome-relay` → **Deploy** → **Edit code**. Replace the code with
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Start with Hello World!**
+2. Name it `tome-relay` → **Deploy** → **Edit code**. Replace all the code with
    [`worker.js`](worker.js) → **Deploy**.
 3. Worker → **Settings → Variables and Secrets** → add a **Text** variable
    `ALLOWED_ORIGINS` = `https://tome.rahulkannan.com,http://localhost:5173`

@@ -60,3 +60,13 @@ describe('tile relay worker', () => {
     expect(allowedOrigin(null, 'https://x')).toBeNull();
   });
 });
+
+describe('relay address', () => {
+  it('adds https:// and drops trailing slashes', async () => {
+    const { relayAddress } = await import('../src/relay');
+    expect(relayAddress('tome-relay.x.workers.dev')).toBe('https://tome-relay.x.workers.dev');
+    expect(relayAddress(' https://r.example/ ')).toBe('https://r.example');
+    expect(relayAddress('')).toBeUndefined();
+    expect(relayAddress(undefined)).toBeUndefined();
+  });
+});
