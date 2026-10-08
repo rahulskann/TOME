@@ -748,7 +748,8 @@ function packTab() {
     }
   };
   return h('div', {},
-    h('h2', {}, 'Pack'),
+    p.maps.length === 0 && !state.origin ? startPanel() : checklist(),
+    h('h2', {}, 'Pack', guideLink('start')),
     keyed(field('Name', p.name, (v) => live(() => (p.name = v))), 'p.name'),
     keyed(field('Id', p.id, (v) => live(() => (p.id = v.toLowerCase())),
       { hint: 'yourname.gamename. Never change it after publishing: progress is saved under it.' }), 'p.id'),
@@ -795,6 +796,44 @@ function packTab() {
   );
 }
 
+/** First thing a new user sees: the three ways to begin. */
+function startPanel() {
+  return h('div', { class: 'card start' },
+    h('h2', {}, 'Start here'),
+    h('p', { class: 'help' }, 'Make an offline map pack for the TOME app. Pick how to begin:'),
+    h('button', { class: 'big', onclick: () => filePicker((f) => void addImage(f).then(() => update(() => (state.tab = 'types')))) },
+      icon('add_photo_alternate'), h('span', {}, h('strong', {}, 'From a map image'), h('small', {}, "One picture of the game's map"))),
+    h('button', { class: 'big', onclick: () => filesPicker((fs) => void newMapFromPieces(fs)) },
+      icon('dashboard'), h('span', {}, h('strong', {}, 'From several images'), h('small', {}, 'e.g. one per region, lined up on one canvas'))),
+    h('button', { class: 'big', onclick: () => zipPicker(openZip) },
+      icon('folder_zip'), h('span', {}, h('strong', {}, 'Edit an existing pack'), h('small', {}, 'Open its zip, or paste its link below'))),
+    h('p', { class: 'help' }, 'New to this? ', h('a', { href: '/guide.html', target: '_blank' }, 'Read the 10-minute guide'), '.'),
+  );
+}
+
+/** What's left before the pack is ready, each step leading to its tab. */
+function checklist() {
+  const p = state.pack;
+  const markerCount = Object.values(state.markers).flat().length;
+  const steps: [boolean, string, Tab][] = [
+    [p.maps.length > 0, 'Add a map', 'maps'],
+    [(p.categories ?? []).length > 0, 'Make marker types', 'types'],
+    [markerCount > 0, markerCount ? `Place markers (${markerCount} so far)` : 'Place markers', 'markers'],
+    [p.id !== 'yourname.mygame' && !!p.name.trim() && p.name !== 'My Game Map', 'Name the pack and set its id', 'pack'],
+    [false, 'Export and publish', 'export'], // the last step: always open
+  ];
+  const next = steps.findIndex(([done]) => !done);
+  return h('div', { class: 'card checklist' },
+    ...steps.map(([done, label, tab], i) => h('button', {
+      class: `step${done ? ' done' : ''}${i === next ? ' next' : ''}`,
+      onclick: () => update(() => (state.tab = tab)),
+    }, icon(done ? 'check_circle' : i === next ? 'arrow_forward' : 'radio_button_unchecked'), label)),
+  );
+}
+
+const guideLink = (anchor: string) =>
+  h('a', { class: 'guide-link', href: `/guide.html#${anchor}`, target: '_blank', title: 'How this works (guide)', 'aria-label': 'Guide' });
+
 // -- Types
 function typesTab() {
   const p = state.pack;
@@ -803,7 +842,7 @@ function typesTab() {
   const groupOptions: [string, string][] = [['', '(no group)'], ...groups.map((g): [string, string] => [g.id, g.name])];
   const iconOptions: [string, string][] = Object.keys(CATEGORY_ICONS).map((k) => [k, k]);
   return h('div', {},
-    h('h2', {}, 'Groups'),
+    h('h2', {}, 'Groups', guideLink('types')),
     h('p', { class: 'help' }, 'Headings for the filter panel, e.g. Collectibles, Navigation.'),
     ...groups.map((g, i) => h('div', { class: 'row' },
       keyed(field('', g.name, (v) => live(() => rename('group', g, v, groups.map((x) => x.id), (old, id) => {
@@ -817,7 +856,7 @@ function typesTab() {
         state.fresh.add(`group:${id}`);
       }),
     }, icon('add'), 'Add group'),
-    h('h2', {}, 'Marker types'),
+    h('h2', {}, 'Marker types', guideLink('types')),
     h('p', { class: 'help' }, 'What players can filter and check off: benches, chests, keys…'),
     ...cats.map((c, i) => h('div', { class: 'card' },
       h('div', { class: 'row' },
@@ -882,7 +921,7 @@ function filePicker(onFile: (f: File) => void) {
 function mapsTab() {
   const maps = state.pack.maps;
   return h('div', {},
-    h('h2', {}, 'Maps'),
+    h('h2', {}, 'Maps', guideLink('maps')),
     h('p', { class: 'help' }, 'Add a map image (PNG/JPG, as big and clean as you can). Tiles are made in your browser when you export.'),
     ...maps.map((m) => {
       const img = state.images[m.id];
@@ -1089,7 +1128,7 @@ function piecesTab() {
   const layout = state.layouts[m.id];
   if (!layout) {
     return h('div', {},
-      h('h2', {}, `Pieces · ${m.name}`),
+      h('h2', {}, `Pieces · ${m.name}`, guideLink('pieces')),
       h('p', { class: 'help' },
         'Build this map from several images placed on one canvas, e.g. a clean picture of each region. ' +
         'Neighbouring pieces line up, and you can add more regions later.'),
@@ -1103,7 +1142,7 @@ function piecesTab() {
   const missing = layout.images.filter((p) => !imgs[p.file]);
   const sel = layout.images.find((p) => p.file === state.selectedPiece);
   return h('div', {},
-    h('h2', {}, `Pieces · ${m.name}`),
+    h('h2', {}, `Pieces · ${m.name}`, guideLink('pieces')),
     h('small', { class: 'muted' }, `Canvas ${layout.size[0]}×${layout.size[1]}px · ${artPieces(layout).length} piece(s)`),
     overflows(layout)
       ? h('small', { class: 'warn' }, 'Some pieces stick out past the canvas (red outline): they\'d be cut off.')
@@ -1252,7 +1291,7 @@ function zoomTab() {
   const detail = link && state.pack.maps.find((x) => x.id === link.map);
   const outlined = (m.regions ?? []).filter((r) => r.outline?.length);
   return h('div', {},
-    h('h2', {}, `Zoom · ${m.name}`),
+    h('h2', {}, `Zoom · ${m.name}`, guideLink('zoom')),
     h('p', { class: 'help' },
       'An overview can hand over to a more detailed map: zoom in past its sharpest level and the app ' +
       'carries on there, at the matching spot. Zooming back out returns to the overview by itself.'),
@@ -1330,7 +1369,7 @@ function markersTab() {
   const sel = list.find((x) => x.id === state.selectedMarker);
   const catOptions: [string, string][] = [['', '(no type)'], ...(state.pack.categories ?? []).map((c): [string, string] => [c.id, c.name])];
   return h('div', {},
-    h('h2', {}, `Markers · ${m.name}`),
+    h('h2', {}, `Markers · ${m.name}`, guideLink('markers')),
     h('button', { class: 'primary', onclick: () => update(() => (state.mode = 'addMarker'), false) }, icon('add_location'), 'Add marker'),
     h('p', { class: 'help' }, 'Drag markers on the map to move them.'),
     sel ? markerForm(m, sel, catOptions) : null,
@@ -1390,7 +1429,7 @@ function regionsTab() {
   const regions = (m.regions ??= []);
   const sel = regions.find((r) => r.id === state.selectedRegion);
   return h('div', {},
-    h('h2', {}, `Regions · ${m.name}`),
+    h('h2', {}, `Regions · ${m.name}`, guideLink('regions')),
     h('p', { class: 'help' }, 'Named places, shown in the map\'s ⓘ info sheet and search. An outline can open another map.'),
     h('div', { class: 'row' },
       h('button', { onclick: () => update(() => (state.mode = 'addPoint'), false) }, icon('place'), 'Add area (point)'),
@@ -1484,7 +1523,7 @@ function exportTab() {
     save();
   };
   return h('div', {},
-    h('h2', {}, 'Export'),
+    h('h2', {}, 'Export', guideLink('export')),
     problems.length
       ? h('ul', { class: 'problems' }, ...problems.map((p) => h('li', { class: p.level }, p.message)))
       : h('p', { class: 'ok' }, icon('check_circle'), 'No problems found.'),

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="How to make an offline map pack for TOME with TOME Studio, step by step." />
+  <title>TOME Studio Guide</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <style>
+    :root {
+      --bg: #11141b; --panel: #1b1f2a; --card: #232838; --line: #313852;
+      --text: #e6e8ef; --muted: #9aa3b8; --accent: #7fb2f0; --warn: #e8b04a;
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.6; font-size: 16px; }
+    header {
+      position: sticky; top: 0; z-index: 2; display: flex; gap: 16px; align-items: center;
+      padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+    }
+    header strong { font-size: 16px; }
+    header a { margin-left: auto; }
+    a { color: var(--accent); }
+    .button {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+      background: var(--accent); color: #0b0d12; text-decoration: none; font-weight: 600; font-size: 14px;
+    }
+    .layout { display: flex; max-width: 1100px; margin: 0 auto; gap: 40px; padding: 0 16px; }
+    nav.toc { position: sticky; top: 64px; align-self: flex-start; width: 220px; flex-shrink: 0; padding: 24px 0; font-size: 14px; }
+    nav.toc a { display: block; padding: 4px 0; color: var(--muted); text-decoration: none; }
+    nav.toc a:hover { color: var(--text); }
+    article { flex: 1; min-width: 0; max-width: 720px; padding: 24px 0 80px; }
+    h1 { font-size: 30px; margin: 8px 0 4px; }
+    h2 { font-size: 22px; margin: 48px 0 8px; padding-top: 8px; scroll-margin-top: 64px; }
+    h3 { font-size: 17px; margin: 24px 0 6px; }
+    p, li { color: #d3d7e2; }
+    .lead { font-size: 18px; color: var(--muted); }
+    ol, ul { padding-left: 22px; }
+    li { margin: 4px 0; }
+    kbd, .ui {
+      display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px;
+      background: var(--card); color: var(--text); font: 600 14px/1.5 system-ui, sans-serif; white-space: nowrap;
+    }
+    code { background: var(--card); padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+    .tip { border-left: 3px solid var(--accent); }
+    .warn { border-left: 3px solid var(--warn); }
+    .card p { margin: 4px 0; }
+    .steps { counter-reset: step; list-style: none; padding: 0; }
+    .steps > li { counter-increment: step; position: relative; padding-left: 40px; margin: 14px 0; }
+    .steps > li::before {
+      content: counter(step); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); color: #0b0d12; font-weight: 700; text-align: center; line-height: 28px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .grid .card { margin: 0; }
+    .grid .card strong { display: block; margin-bottom: 4px; }
+    .material-icons { font-size: 18px; vertical-align: -3px; }
+    @media (max-width: 800px) {
+      nav.toc { display: none; }
+      .layout { display: block; }
+      header .muted { display: none; }
+      header .button { white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>TOME Studio Guide</strong>
+    <span class="muted" style="color: var(--muted)">Make an offline map pack, step by step.</span>
+    <a class="button" href="/"><span class="material-icons">map</span>Open the studio</a>
+  </header>
+  <div class="layout">
+    <nav class="toc">
+      <a href="#start">Quick start</a>
+      <a href="#types">Marker types</a>
+      <a href="#markers">Markers</a>
+      <a href="#regions">Regions</a>
+      <a href="#maps">Maps</a>
+      <a href="#pieces">Building a map from pieces</a>
+      <a href="#zoom">Zooming between maps</a>
+      <a href="#export">Export and publish</a>
+      <a href="#edit">Editing a published pack</a>
+      <a href="#faq">Good to know</a>
+    </nav>
+    <article>
+      <h1>Make a map pack</h1>
+      <p class="lead">
+        TOME is an offline map app for any game. A <strong>pack</strong> is one game's maps plus the
+        things on them (benches, chests, keys…), which players can filter and check off.
+        TOME Studio is where you make one. Everything happens in your browser: nothing is uploaded.
+      </p>
+
+      <div class="grid">
+        <div class="card"><strong><span class="material-icons">map</span> Maps</strong>Big images of the game world.</div>
+        <div class="card"><strong><span class="material-icons">category</span> Marker types</strong>Kinds of things: "Bench", "Mask Shard".</div>
+        <div class="card"><strong><span class="material-icons">place</span> Markers</strong>Each thing, placed on a map.</div>
+        <div class="card"><strong><span class="material-icons">crop_free</span> Regions</strong>Named areas, listed in the app's info sheet and search.</div>
+      </div>
+
+      <h2 id="start">Quick start: your first pack in 10 minutes</h2>
+      <ol class="steps">
+        <li><strong>Add a map.</strong> In the <span class="ui">Maps</span> tab, click
+          <span class="ui">Add map from image</span> and pick a picture of the game's map. Use the
+          biggest, cleanest one you have: players zoom right in.</li>
+        <li><strong>Make marker types.</strong> In <span class="ui">Types</span>, add a group
+          (e.g. "Collectibles") and a few types (e.g. "Chest"), each with a colour and icon.</li>
+        <li><strong>Place markers.</strong> In <span class="ui">Markers</span>, click
+          <span class="ui">Add marker</span>, then click the map. Give it a name, a type and a note.
+          Drag markers to move them.</li>
+        <li><strong>Name your pack.</strong> In <span class="ui">Pack</span>, set a name and an id like
+          <code>yourname.gamename</code>.</li>
+        <li><strong>Download it.</strong> In <span class="ui">Export</span>, click
+          <span class="ui">Download pack (.zip)</span>. Then follow <a href="#export">Export and publish</a>
+          to get it onto your phone.</li>
+      </ol>
+      <div class="card tip">
+        <p><strong>Your work is saved in this browser as you go.</strong> Map images aren't (they're too big),
+          so after closing the tab you may need to re-add them. Export often: the zip is your real save file.</p>
+      </div>
+
+      <h2 id="types">Marker types</h2>
+      <p>Types are what players filter by and check off. Put them in <strong>groups</strong>, which become
+        headings in the app's filter panel (Collectibles, Navigation, Bosses…).</p>
+      <ul>
+        <li>Pick a <strong>colour</strong> and an <strong>icon</strong> so types are easy to tell apart at a glance.</li>
+        <li>Add a <strong>wiki page</strong> if your pack has a wiki base URL (set in <span class="ui">Pack</span>),
+          and the app links to it.</li>
+      </ul>
+
+      <h2 id="markers">Markers</h2>
+      <ul>
+        <li><span class="ui">Add marker</span>, then click the map. Drag a marker to move it; click it to edit.</li>
+        <li><strong>Notes</strong> are shown offline in the app: how to reach it, what it needs.</li>
+        <li>Untick <strong>Can be checked off</strong> for things that aren't collected, like benches or shops.</li>
+      </ul>
+
+      <h2 id="regions">Regions</h2>
+      <p>Regions name parts of a map. They show in the app's <span class="material-icons">info</span> info sheet and in search.</p>
+      <ul>
+        <li><span class="ui">Add area (point)</span>: a name at one spot, e.g. a town.</li>
+        <li><span class="ui">Draw outline</span>: click around an area, then <span class="ui">Finish</span>.
+          An outline can <strong>open another map</strong> when tapped (e.g. a region on a world map
+          opening that region's detailed map).</li>
+      </ul>
+
+      <h2 id="maps">Maps</h2>
+      <p>A pack can have several maps: a world overview, a detailed map, an underground layer…
+        Each has its own markers and regions. The first map is the one the app opens on.</p>
+      <ul>
+        <li>Click the round button next to a map to show it and edit its markers.</li>
+        <li><span class="ui">Set start view</span> uses what's on screen as where the map opens.</li>
+      </ul>
+
+      <h2 id="pieces">Building a map from pieces</h2>
+      <p>Sometimes a game's map comes as separate pictures, say one per region. The
+        <span class="ui">Pieces</span> tab places them on one canvas so neighbours line up, and you can keep
+        adding regions as you go.</p>
+      <ol class="steps">
+        <li><strong>Start.</strong> Either <span class="ui">Maps → Map from pieces</span> (pick all the images),
+          or open an existing map and click <span class="ui">Compose this map from pieces</span>: its current
+          image becomes the first piece, locked, so nothing already placed moves.</li>
+        <li><strong>Line them up.</strong> Drag pieces on the map. For fine moves, click a piece and use the
+          <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> keys (hold <kbd>Shift</kbd> for 10px).
+          <span class="ui">Scale</span> fixes a piece captured at a different size.</li>
+        <li><strong>Use a guide (optional).</strong> <span class="ui">Add reference image</span> lays a picture,
+          such as a full community map, over the top, see-through. Line pieces up against it. It's never
+          exported, so you can use a picture you aren't allowed to publish.</li>
+        <li><strong>Lock and link.</strong> Tick <span class="ui">Locked</span> once a piece is right, so it can't
+          be nudged by accident. <span class="ui">Link with</span> joins pieces that already line up, so they
+          move as one bigger piece.</li>
+        <li><strong>Make room.</strong> If a piece goes past the canvas edge (red outline),
+          click <span class="ui">Fit canvas to pieces</span>. Markers shift along so they stay on the art.</li>
+      </ol>
+      <div class="card tip">
+        <p>Markers sitting on a piece move with it when you drag it. Untick
+          <strong>Markers and areas move with the piece they're on</strong> if you'd rather they stayed.</p>
+      </div>
+
+      <h2 id="zoom">Zooming between maps</h2>
+      <p>An overview can hand over to a more detailed map: when a player zooms in past the overview's sharpest
+        level, the app switches to the detailed map at the same spot. Zooming back out returns to the
+        overview by itself. You set this up on the <strong>overview</strong>.</p>
+      <ol class="steps">
+        <li>Show the overview, open the <span class="ui">Zoom</span> tab, and choose the detailed map under
+          <span class="ui">Continue on</span>.</li>
+        <li><strong>Add matching points</strong>: click <span class="ui">Add matching point</span>, click a spot
+          you can recognise on the overview (a region's name, a landmark), and the studio switches to the
+          detailed map: click the same spot there. Add 4 or more, spread across the map.
+          <br>Shortcut: <span class="ui">Match regions by name</span> pairs every region that has the same name
+          on both maps.</li>
+        <li><strong>Check it</strong> with <span class="ui">Try it</span>: click anywhere and you jump to where
+          the app would land (a ring marks the spot). Click again to zoom back out. Drag the numbered circles on
+          either map to fix any that are off.</li>
+        <li><strong>Detailed map not finished yet?</strong> Tick the regions it already covers. Zooming in
+          anywhere else stays on the overview, so players never see empty space.</li>
+      </ol>
+
+      <h2 id="export">Export and publish</h2>
+      <p>The <span class="ui">Export</span> tab lists anything that needs fixing first, then
+        <span class="ui">Download pack (.zip)</span> builds the map tiles (big maps take a minute) and saves
+        a zip with:</p>
+      <ul>
+        <li><code>pack.json</code> (the pack), <code>markers/</code> (the markers), <code>out/</code> (the map tiles),</li>
+        <li><code>layout.json</code> and <code>source/</code> for maps made from pieces,</li>
+        <li><code>PUBLISHING.md</code>: the steps to share it.</li>
+      </ul>
+      <h3>Sharing it</h3>
+      <p>Players add packs in TOME from a GitHub link. In short (<code>PUBLISHING.md</code> in the zip has the exact
+        commands):</p>
+      <ol>
+        <li>Put the folder in a public GitHub repository.</li>
+        <li>Upload the tile zips from <code>out/</code> as a <strong>release</strong> (GitHub keeps big files there).</li>
+        <li>Players then add it in TOME with <code>yourname/yourrepo/folder</code>.</li>
+      </ol>
+      <p>To publish an update, bump the <strong>Version</strong> in <span class="ui">Pack</span> (e.g. 1.0.0 → 1.1.0)
+        and repeat: players are offered the update.</p>
+
+      <h2 id="edit">Editing a published pack</h2>
+      <ol>
+        <li>In <span class="ui">Pack</span>, either type the link (e.g. <code>yourname/yourrepo/folder</code>) and
+          click <span class="ui">Open link</span>, or zip the folder and use <span class="ui">Open a pack zip</span>
+          (a whole repo from GitHub's <em>Code → Download ZIP</em> works too).</li>
+        <li>Map images load from the pack's release by themselves. If one doesn't, use
+          <span class="ui">Maps → Load tiles zip</span> with the zip from the release.</li>
+        <li>Edit, then <span class="ui">Export</span>. The zip unpacks to the same folder name: unzip it over your
+          folder, check what changed, and publish as above.</li>
+      </ol>
+
+      <h2 id="faq">Good to know</h2>
+      <div class="card warn">
+        <p><strong>Don't change ids after publishing.</strong> Players' progress is saved under the pack id and
+          the marker and type ids. Until your first export, ids follow names automatically; after that they're fixed
+          (names can still change).</p>
+      </div>
+      <h3>I reloaded and my map is blank</h3>
+      <p>Images aren't kept in the browser. Published maps reload from their release; otherwise use
+        <span class="ui">Add image</span> on the map (or <span class="ui">Re-add images…</span> in
+        <span class="ui">Pieces</span>, picking all the piece images at once).</p>
+      <h3>How big can a map be?</h3>
+      <p>Most browsers handle images up to about 16,000 pixels across. Bigger is sharper in the app, but slower to export.</p>
+      <h3>Can I use art from the game?</h3>
+      <p>Credit where it came from, and respect the owner's wishes. Fan packs should be free. Use the reference image
+        for anything you're not allowed to share: it stays on your computer.</p>
+      <p style="margin-top: 40px"><a class="button" href="/"><span class="material-icons">map</span>Open the studio</a>
+        &nbsp; <a href="https://github.com/rahulskann/TOME/blob/main/docs/pack-format.md">Pack format reference</a></p>
+    </article>
+  </div>
+</body>
+</html>

@@ -4,6 +4,9 @@ A website for making TOME map packs without the command line: add a map image, d
 marker types, place markers and regions, then export a pack ready to publish. Everything
 runs in the browser (tiles are cut on your machine); there's no server.
 
+New users: the step-by-step guide is [public/guide.html](public/guide.html), served at `/guide.html`
+and linked from the studio's header and each tab's ? icon.
+
 ## Use it
 
 1. **Maps → Add map from image.** Use the biggest, cleanest image you can.

@@ -115,3 +115,25 @@ input[type='range'] { width: 100%; }
   color: #fff; font: 600 11px/18px system-ui, sans-serif; text-align: center; box-sizing: border-box;
 }
 .zpt.inline { display: inline-block; flex-shrink: 0; }
+
+/* Guide links: a ? after each heading (drawn by CSS so it isn't part of the heading text). */
+h2 { display: flex; align-items: center; gap: 6px; }
+.guide-link { color: var(--muted); text-decoration: none; margin-left: auto; }
+.guide-link::before { content: 'help_outline'; font-family: 'Material Icons'; font-size: 18px; }
+.guide-link:hover { color: var(--accent); }
+header .guide { font-weight: 600; display: inline-flex; gap: 4px; align-items: center; }
+header .guide + a { margin-left: 12px; }
+header .guide .material-icons { font-size: 18px; }
+
+.start h2 { margin-top: 4px; }
+button.big { display: flex; width: 100%; padding: 10px 12px; margin: 6px 0; text-align: left; }
+button.big .material-icons { font-size: 26px; color: var(--accent); }
+button.big span { display: flex; flex-direction: column; }
+button.big small { margin: 0; color: var(--muted); }
+.checklist { padding: 4px 6px; }
+.checklist .step {
+  display: flex; width: 100%; margin: 0; border: none; background: transparent; color: var(--muted); padding: 5px 6px;
+}
+.checklist .step.done { color: #7fd29a; }
+.checklist .step.next { color: var(--text); font-weight: 600; }
+.checklist .step.next .material-icons { color: var(--accent); }
