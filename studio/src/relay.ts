@@ -21,7 +21,13 @@ export async function fetchViaRelay(
   archive: string,
   onProgress?: (received: number, total?: number) => void,
 ): Promise<Blob> {
-  const resp = await fetch(`${RELAY_URL}/?url=${encodeURIComponent(archive)}`);
+  let resp: Response;
+  try {
+    resp = await fetch(`${RELAY_URL}/?url=${encodeURIComponent(archive)}`);
+  } catch {
+    throw new Error(`Couldn't reach the tile relay at ${RELAY_URL}. Check it's deployed and that ` +
+      `ALLOWED_ORIGINS in its settings includes ${location.origin}.`);
+  }
   if (!resp.ok) throw new Error(`The relay couldn't get ${archive.split('/').pop()} (${resp.status}: ${await resp.text()})`);
   const total = Number(resp.headers.get('Content-Length')) || undefined;
   if (!resp.body) return resp.blob();

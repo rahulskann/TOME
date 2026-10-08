@@ -36,7 +36,14 @@ export default {
       }), origin);
     }
     if (request.method !== 'GET') return withCors(new Response('Method not allowed', { status: 405 }), origin);
-    if (!origin) return new Response('Origin not allowed', { status: 403 });
+    if (!origin) {
+      // Readable by any page (it carries no data), so the studio can say why.
+      const from = request.headers.get('Origin');
+      return new Response(`Origin not allowed${from ? `: add ${from} to ALLOWED_ORIGINS` : ''}`, {
+        status: 403,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+      });
+    }
 
     const target = new URL(request.url).searchParams.get('url') ?? '';
     if (!RELEASE_ZIP.test(target)) {

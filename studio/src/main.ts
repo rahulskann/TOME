@@ -69,7 +69,8 @@ function restore() {
     state.fresh = new Set(data.fresh ?? []);
     state.markers = data.markers ?? {};
     state.activeMap = data.activeMap ?? data.pack.maps[0]?.id;
-    state.status = 'Restored your last session. Re-add map images to see them (images aren\'t saved in the browser).';
+    state.status = "Restored your last session. Maps that aren't published need their image re-added " +
+      "(images aren't saved in the browser).";
   } catch {
     /* corrupt or blocked storage: start fresh */
   }
@@ -760,3 +761,5 @@ function exportTab() {
 restore();
 renderSidebar();
 renderMapLayers();
+// Published maps come back from their release; others need their image re-added.
+for (const m of state.pack.maps) if (relayable(m.tiles.archive)) void loadFromRelease(m);

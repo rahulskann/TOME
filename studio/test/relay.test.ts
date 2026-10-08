@@ -32,7 +32,9 @@ describe('tile relay worker', () => {
   });
 
   it('refuses other origins and anything that isn\'t a release zip', async () => {
-    expect((await call(relayUrl(RELEASE), { origin: 'https://evil.example' }).res).status).toBe(403);
+    const refused = await call(relayUrl(RELEASE), { origin: 'https://evil.example' }).res;
+    expect(refused.status).toBe(403);
+    expect(await refused.text()).toContain('add https://evil.example to ALLOWED_ORIGINS');
     expect((await call(relayUrl(RELEASE)).res).status).toBe(403); // no Origin
     for (const bad of [
       'https://example.com/file.zip',
