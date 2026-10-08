@@ -36,6 +36,43 @@ export interface Region {
   [extra: string]: unknown;
 }
 
+/** Matching points between an overview and a more detailed map (see docs/pack-format.md). */
+export interface ZoomLink {
+  map: string;
+  /** [overviewX, overviewY, detailX, detailY] */
+  points: [number, number, number, number][];
+  /** Overview regions the detailed map covers; absent = everywhere. */
+  regions?: string[];
+  [extra: string]: unknown;
+}
+
+/** One image placed on a composed map's canvas (tools/compose_map.py layout). */
+export interface Piece {
+  file: string;
+  x: number;
+  y: number;
+  scale?: number;
+  /** Natural size of the image, so its place shows even before it's loaded. */
+  width?: number;
+  height?: number;
+  /** Pieces sharing a group move together. */
+  group?: string;
+  /** Can't be dragged. */
+  locked?: boolean;
+  /** Studio only: an alignment guide, never composed or exported. */
+  reference?: boolean;
+  opacity?: number;
+  [extra: string]: unknown;
+}
+
+export interface Layout {
+  map?: string;
+  note?: string;
+  size: [number, number];
+  images: Piece[];
+  [extra: string]: unknown;
+}
+
 export interface MapDef {
   id: string;
   name: string;
@@ -49,6 +86,9 @@ export interface MapDef {
   regions?: Region[];
   description?: string;
   wiki?: string;
+  zoomsInto?: ZoomLink;
+  /** Layout file this map is composed from (studio and tools only; the app ignores it). */
+  layout?: string;
   [extra: string]: unknown;
 }
 
@@ -190,6 +230,17 @@ export function validate(pack: Pack, markers: Record<string, Marker[]>): Problem
   for (const m of pack.maps) {
     for (const r of m.regions ?? []) {
       if (r.map && !mapIds.has(r.map)) err(`Region "${r.name}" opens a map that doesn't exist.`);
+    }
+    const link = m.zoomsInto;
+    if (link) {
+      if (!mapIds.has(link.map) || link.map === m.id) err(`${m.name} zooms into a map that doesn't exist.`);
+      if (link.points.length < 2) err(`${m.name} zooms into another map: add at least 2 matching points (Zoom tab).`);
+      else if (link.points.length < 4) warn(`${m.name}: more matching points (spread out) make zooming in land more accurately.`);
+      for (const id of link.regions ?? []) {
+        const r = m.regions?.find((x) => x.id === id);
+        if (!r) err(`${m.name}'s zoom-in area list names a region that no longer exists ("${id}").`);
+        else if (!r.outline?.length) err(`Region "${r.name}" limits where ${m.name} zooms in, so it needs an outline.`);
+      }
     }
   }
   return out;

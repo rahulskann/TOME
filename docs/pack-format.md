@@ -75,6 +75,7 @@ Tile archives are attached to a GitHub Release, not committed.
 | `maps[].description` | no | About this map, shown in its info sheet (with optional `source` credit). |
 | `maps[].wiki` | no | Wiki page for this map. |
 | `maps[].zoomsInto` | no | A detailed map that zooming in anywhere on this one continues on. See below. |
+| `maps[].layout` | no | Layout file the map's image is composed from (see below). Used by TOME Studio and `tools/compose_map.py`; the app ignores it. |
 
 ### Regions and areas
 
@@ -144,9 +145,10 @@ to share geometry. Prefer this over region maps when you have a detailed map of 
 region maps show only their region, with gaps around it.
 
 If your detailed art comes as separate per-region images, place them on one canvas with
-`tools/compose_map.py` (a small JSON layout of image positions) and slice the result: the
-regions then line up with their neighbours. Keep the canvas size fixed as you add regions
-so marker positions never change.
+TOME Studio's **Pieces** tab or `tools/compose_map.py` (a small JSON layout of image positions,
+named by the map's `layout`) and slice the result: the regions then line up with their
+neighbours. Keep the canvas size fixed as you add regions so marker positions never change
+(the studio's *Fit canvas* shifts markers along when it does change it).
 
 ### Category icons
 

@@ -30,6 +30,29 @@ Ids follow names until you export, then stay fixed: players' progress is saved u
 
 You can also load just `pack.json` and markers with *Open link*.
 
+**A map built from pieces** (e.g. one clean image per region), in the **Pieces** tab:
+
+- **Maps → Map from pieces** starts one; **Pieces → Compose this map from pieces** turns an
+  existing map into one (its current image becomes a locked first piece, so nothing moves).
+- **Add pieces**, then drag them into place; arrow keys nudge the selected piece (Shift: 10px).
+  Set *Scale* if a piece was captured at a different size.
+- **Lock** a piece once it's right; **Link with** makes pieces move as one.
+- **Add reference image**: a see-through guide (say, a full community map) to line pieces up
+  against. It's never exported.
+- **Fit canvas to pieces** grows or shrinks the canvas; markers, areas and zoom points shift
+  with it so they stay on the art. Markers on a piece also move with it (switchable).
+- Export writes `layout.json` (the same format as `tools/compose_map.py`), the piece images
+  under `source/`, and new tiles.
+
+**Zooming between maps**, in the **Zoom** tab of the overview:
+
+1. *Continue on*: the detailed map. Zooming in past the overview's sharpest level then carries
+   on there; zooming out of the detailed map comes back by itself.
+2. Add 4+ **matching points**: click a spot on the overview, then the same spot on the detailed
+   map. *Match regions by name* pairs regions named the same on both. Drag the numbers to adjust.
+3. Optionally tick the regions the detailed map covers so far.
+4. **Try it**: click anywhere to jump to where the app would land.
+
 ## Develop
 
     npm install

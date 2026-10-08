@@ -3,6 +3,7 @@ main = "worker.js"
 compatibility_date = "2026-10-01"
 
 [vars]
-# Studio addresses allowed to use the relay (comma-separated). Add your Vercel
-# preview URL if you use it.
-ALLOWED_ORIGINS = "https://tome.rahulkannan.com,http://localhost:5173,http://localhost:4173"
+# Studio addresses allowed to use the relay (comma-separated). * matches one
+# part of a name (no dots), covering Vercel's per-deployment links.
+# Keep in sync with the dashboard: `wrangler deploy` overwrites it.
+ALLOWED_ORIGINS = "https://tome.rahulkannan.com,https://*-rahul-kannan-s-projects.vercel.app,http://localhost:5173,http://localhost:4173"

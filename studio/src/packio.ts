@@ -1,7 +1,8 @@
 // Opening packs from a link and exporting them as a ready-to-publish zip.
 import JSZip from 'jszip';
 import { packFolderCandidates } from './location';
-import { type Marker, type Pack, markersPath } from './model';
+import { layoutForExport } from './compose';
+import { type Layout, type MapDef, type Marker, type Pack, markersPath } from './model';
 
 export interface OpenedPack {
   pack: Pack;
@@ -10,6 +11,56 @@ export interface OpenedPack {
   folder: string;
   /** Tile zips found alongside the pack (zip import only), by map id. */
   tileZips?: Record<string, Blob>;
+  /** Layouts of composed maps, by map id, and their piece images by file. */
+  layouts?: Record<string, Layout>;
+  pieces?: Record<string, Record<string, Blob>>;
+}
+
+const isLayout = (v: unknown): v is Layout =>
+  typeof v === 'object' && v !== null && Array.isArray((v as Layout).images) &&
+  Array.isArray((v as Layout).size) && (v as Layout).size.length === 2;
+
+/**
+ * Which map a layout file belongs to: the map naming it, else the one its
+ * `map` field names, else the one with the same size (older layout.json files).
+ */
+export function layoutOwner(maps: MapDef[], file: string, layout: Layout): MapDef | undefined {
+  return maps.find((m) => m.layout === file) ??
+    maps.find((m) => m.id === layout.map) ??
+    maps.find((m) => !m.layout && m.image.width === layout.size[0] && m.image.height === layout.size[1]);
+}
+
+/** Finds layout files and their pieces with `read` (path relative to the pack folder). */
+async function readLayouts(
+  pack: Pack,
+  files: string[],
+  readText: (path: string) => Promise<string | undefined>,
+  readBlob: (path: string) => Promise<Blob | undefined>,
+): Promise<{ layouts: Record<string, Layout>; pieces: Record<string, Record<string, Blob>> }> {
+  const layouts: Record<string, Layout> = {};
+  const pieces: Record<string, Record<string, Blob>> = {};
+  const named = pack.maps.map((m) => m.layout).filter((f): f is string => !!f);
+  for (const file of [...new Set([...named, ...files])]) {
+    let layout: unknown;
+    try {
+      const text = await readText(file);
+      if (text === undefined) continue;
+      layout = JSON.parse(text);
+    } catch {
+      continue;
+    }
+    if (!isLayout(layout)) continue;
+    const m = layoutOwner(pack.maps, file, layout);
+    if (!m || layouts[m.id]) continue;
+    m.layout = file;
+    layouts[m.id] = layout;
+    pieces[m.id] = {};
+    for (const p of layout.images) {
+      const blob = await readBlob(p.file);
+      if (blob) pieces[m.id][p.file] = blob;
+    }
+  }
+  return { layouts, pieces };
 }
 
 /**
@@ -53,7 +104,13 @@ export async function importPackZip(data: Blob | ArrayBuffer): Promise<OpenedPac
         }
       }
     }
-    packs.push({ pack, markers, folder, tileZips });
+    const top = Object.keys(zip.files)
+      .filter((f) => f.startsWith(folder) && /^layout[^/]*\.json$/.test(f.slice(folder.length)))
+      .map((f) => f.slice(folder.length));
+    const { layouts, pieces } = await readLayouts(pack, top,
+      async (f) => zip.file(folder + f)?.async('string'),
+      async (f) => zip.file(folder + f)?.async('blob'));
+    packs.push({ pack, markers, folder, tileZips, layouts, pieces });
   }
   if (packs.length === 0) throw new Error('The pack.json files in that zip aren\'t TOME packs.');
   return packs;
@@ -81,7 +138,18 @@ export async function openFromLink(input: string, fetcher: typeof fetch = fetch)
       const r = await fetcher(folder + markersPath(m));
       markers[m.id] = r.ok ? ((await r.json()) as Marker[]) : [];
     }
-    return { pack, markers, folder };
+    const get = async (f: string) => {
+      try {
+        const r = await fetcher(folder + f);
+        return r.ok ? r : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const { layouts, pieces } = await readLayouts(pack, ['layout.json'],
+      async (f) => (await get(f))?.text(),
+      async (f) => (await get(f))?.blob());
+    return { pack, markers, folder, layouts, pieces };
   }
   throw new Error(`No pack.json found at ${candidates[0]}`);
 }
@@ -100,7 +168,14 @@ export async function exportPack(
   pack: Pack,
   markers: Record<string, Marker[]>,
   newTiles: Record<string, Blob>,
-  options: { folderName?: string; keptTiles?: Record<string, Blob>; notes?: boolean } = {},
+  options: {
+    folderName?: string;
+    keptTiles?: Record<string, Blob>;
+    notes?: boolean;
+    /** Composed maps: their layouts and piece images, written as layout files and source images. */
+    layouts?: Record<string, Layout>;
+    pieces?: Record<string, Record<string, Blob>>;
+  } = {},
 ): Promise<Blob> {
   const zip = new JSZip();
   const folder = zip.folder(options.folderName || pack.id)!;
@@ -118,10 +193,25 @@ export async function exportPack(
     }
     m.markers = markersPath(m);
     folder.file(m.markers, json(markers[m.id] ?? []));
+    const layout = options.layouts?.[m.id];
+    if (layout) {
+      m.layout ??= layoutFileFor(finalPack, m.id);
+      folder.file(m.layout, json(layoutForExport(layout, m.id)));
+      for (const p of layout.images) {
+        const blob = options.pieces?.[m.id]?.[p.file];
+        if (blob && !p.reference) folder.file(p.file, blob);
+      }
+    }
   }
   folder.file('pack.json', json(finalPack));
   if (options.notes ?? true) folder.file('PUBLISHING.md', publishingNotes(finalPack, Object.keys(newTiles)));
   return zip.generateAsync({ type: 'blob' });
+}
+
+/** layout.json for the first composed map, layout-<id>.json after that. */
+export function layoutFileFor(pack: Pack, mapId: string): string {
+  const used = new Set(pack.maps.filter((m) => m.id !== mapId).map((m) => m.layout));
+  return used.has('layout.json') ? `layout-${mapId}.json` : 'layout.json';
 }
 
 function publishingNotes(pack: Pack, sliced: string[]): string {
