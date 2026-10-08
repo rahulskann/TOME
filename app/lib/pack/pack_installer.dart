@@ -178,6 +178,21 @@ Future<InstalledPack> installRemotePack(
       }
     }
 
+    // Custom type icons. Optional: a missing one falls back to the built-in icon.
+    final icons = {for (final cat in remote.manifest.categories) ?cat.iconImage};
+    if (icons.isNotEmpty) report('Downloading icons');
+    for (final path in icons) {
+      try {
+        final resp = await c.get(resolveInPack(remote.folder, path));
+        if (resp.statusCode != 200) continue;
+        final out = File(p.joinAll([staging.path, ...path.split('/')]));
+        await out.parent.create(recursive: true);
+        await out.writeAsBytes(resp.bodyBytes);
+      } on http.ClientException {
+        continue;
+      }
+    }
+
     await File(p.join(staging.path, sourceFileName)).writeAsString(jsonEncode({
       'input': remote.input,
       'folder': remote.folder.toString(),

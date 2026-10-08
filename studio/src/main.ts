@@ -23,6 +23,7 @@ import {
   type Pack,
   type Piece,
   type Region,
+  iconPathFor,
   mapForImage,
   nativeMaxZoom,
   newPack,
@@ -93,6 +94,8 @@ const state = {
   pendingZoom: undefined as { map: string; x: number; y: number; center: L.LatLng; zoom: number } | undefined,
   /** "Try it" result to show. */
   tryPoint: undefined as { map: string; x: number; y: number } | undefined,
+  /** Custom type icons as data URLs, by their path in the pack (small, so saved in the browser). */
+  icons: {} as Record<string, string>,
 };
 
 function restore() {
@@ -101,8 +104,9 @@ function restore() {
     if (!saved) return;
     const data = JSON.parse(saved) as {
       pack: Pack; markers: Record<string, Marker[]>; activeMap?: string; fresh?: string[];
-      layouts?: Record<string, Layout>; dirtyLayouts?: string[];
+      layouts?: Record<string, Layout>; dirtyLayouts?: string[]; icons?: Record<string, string>;
     };
+    state.icons = data.icons ?? {};
     state.pack = data.pack;
     state.layouts = data.layouts ?? {};
     state.dirtyLayouts = new Set(data.dirtyLayouts ?? []);
@@ -125,7 +129,7 @@ function save() {
         STORAGE_KEY,
         JSON.stringify({
           pack: state.pack, markers: state.markers, activeMap: state.activeMap, fresh: [...state.fresh],
-          layouts: state.layouts, dirtyLayouts: [...state.dirtyLayouts],
+          layouts: state.layouts, dirtyLayouts: [...state.dirtyLayouts], icons: state.icons,
         }),
       );
     } catch {
@@ -182,12 +186,18 @@ const toPixel = (m: MapDef, ll: L.LatLng): [number, number] => [
   Math.round(-ll.lat * 2 ** m.maxZoom),
 ];
 
+/** A type's icon: its uploaded image if it has one, else the built-in symbol. */
+function typeIcon(c: Category | undefined, tint?: string): HTMLElement {
+  const url = c?.iconImage ? state.icons[c.iconImage] : undefined;
+  return url ? h('img', { class: 'type-img', src: url, alt: '' }) : icon(materialIcon(c?.icon), tint);
+}
+
 function markerIcon(mk: Marker, selected: boolean): L.DivIcon {
   const c = category(mk.category);
   const el = h(
     'div',
     { class: `pin${selected ? ' selected' : ''}`, style: { background: c?.color ?? '#7fb2f0' } },
-    icon(materialIcon(c?.icon)),
+    typeIcon(c),
   );
   return L.divIcon({ html: el, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
 }
@@ -622,6 +632,7 @@ function loadOpened(opened: OpenedPack, fromZip: boolean) {
     clearPieces();
     state.layouts = opened.layouts ?? {};
     state.dirtyLayouts.clear();
+    state.icons = {};
     state.fresh.clear();
     state.choices = [];
     state.origin = { folder: opened.folder, fromZip };
@@ -644,6 +655,9 @@ function loadOpened(opened: OpenedPack, fromZip: boolean) {
     if (state.keptTiles[m.id]) void showTiles(m);
     else if (relayable(m.tiles.archive)) void loadFromRelease(m);
   }
+  void Promise.all(Object.entries(opened.icons ?? {}).map(async ([path, blob]) =>
+    [path, await blobToDataUrl(new Blob([blob], { type: 'image/png' }))] as const))
+    .then((entries) => update(() => Object.assign(state.icons, Object.fromEntries(entries))));
   for (const [mapId, blobs] of Object.entries(opened.pieces ?? {})) {
     for (const [file, blob] of Object.entries(blobs)) void loadPieceImage(mapId, file, blob);
   }
@@ -786,6 +800,7 @@ function packTab() {
           clearPieces();
           state.layouts = {};
           state.dirtyLayouts.clear();
+          state.icons = {};
           state.origin = undefined;
           state.exportFolder = '';
           state.choices = [];
@@ -808,6 +823,8 @@ function startPanel() {
     h('button', { class: 'big', onclick: () => zipPicker(openZip) },
       icon('folder_zip'), h('span', {}, h('strong', {}, 'Edit an existing pack'), h('small', {}, 'Open its zip, or paste its link below'))),
     h('p', { class: 'help' }, 'New to this? ', h('a', { href: '/guide.html', target: '_blank' }, 'Read the 10-minute guide'), '.'),
+    h('p', { class: 'help' }, 'TOME is free. If it helps you, ',
+      h('a', { href: 'https://buymeacoffee.com/rahulskann', target: '_blank', rel: 'noopener' }, 'buy me a coffee'), ' ☕'),
   );
 }
 
@@ -862,13 +879,31 @@ function typesTab() {
       h('div', { class: 'row' },
         h('input', { type: 'color', value: c.color ?? '#7fb2f0', oninput: (e: Event) =>
           live(() => (c.color = (e.target as HTMLInputElement).value.toUpperCase())) }),
-        icon(materialIcon(c.icon), c.color),
+        typeIcon(c, c.color),
         keyed(field('', c.name, (v) => live(() => rename('cat', c, v, cats.map((x) => x.id), (old, id) => {
           for (const mk of Object.values(state.markers).flat()) if (mk.category === old) mk.category = id;
+          if (c.iconImage === iconPathFor(old) && state.icons[c.iconImage]) {
+            state.icons[iconPathFor(id)] = state.icons[c.iconImage];
+            delete state.icons[c.iconImage];
+            c.iconImage = iconPathFor(id);
+          }
         }))), `c${i}`)),
       h('div', { class: 'row' },
-        select('Icon', c.icon ?? 'circle', iconOptions, (v) => update(() => (c.icon = v))),
+        select(c.iconImage ? 'Icon (if the image is missing)' : 'Icon', c.icon ?? 'circle', iconOptions,
+          (v) => update(() => (c.icon = v))),
         select('Group', c.group ?? '', groupOptions, (v) => update(() => (c.group = v || undefined)))),
+      h('div', { class: 'row' },
+        h('button', { onclick: () => filePicker((f) => void uploadIcon(c, f)) }, icon('upload'),
+          c.iconImage ? 'Change icon image' : 'Upload icon image'),
+        c.iconImage
+          ? h('button', { class: 'ghost', title: 'Use the built-in icon again', onclick: () => update(() => {
+            delete state.icons[c.iconImage!];
+            delete c.iconImage;
+          }) }, icon('close'), 'Remove')
+          : null),
+      c.iconImage && !state.icons[c.iconImage]
+        ? h('small', { class: 'warn' }, `${c.iconImage} isn't loaded: re-upload it, or open the pack again.`)
+        : null,
       keyed(field('Wiki page', c.wiki ?? '', (v) => live(() => (c.wiki = v || undefined)),
         { placeholder: 'optional' }), `cw${i}`),
       h('small', { class: 'muted' }, `id: ${c.id}`),
@@ -883,7 +918,43 @@ function typesTab() {
       }),
     }, icon('add'), 'Add type'),
     h('p', { class: 'help' }, 'Ids follow names until you export; after that they stay fixed, because saved progress refers to them.'),
+    h('p', { class: 'help' }, 'Icon images: small pictures from the game (a PNG with a see-through background works best). ' +
+      'They\'re shrunk to 128px and drawn inside the type\'s coloured circle.'),
   );
+}
+
+/** Shrinks an uploaded icon to fit 128×128 and stores it as the type's icon image. */
+async function uploadIcon(c: Category, file: File) {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    return update(() => (state.status = `Couldn't read ${file.name} as an image.`), false);
+  }
+  const k = Math.min(1, ICON_SIZE / Math.max(bitmap.width, bitmap.height));
+  const canvas = h('canvas', { width: Math.max(1, Math.round(bitmap.width * k)), height: Math.max(1, Math.round(bitmap.height * k)) });
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  update(() => {
+    if (c.iconImage) delete state.icons[c.iconImage];
+    c.iconImage = iconPathFor(c.id);
+    state.icons[c.iconImage] = canvas.toDataURL('image/png');
+  });
+}
+
+const ICON_SIZE = 128;
+
+const dataUrlToBlob = async (url: string) => (await fetch(url)).blob();
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
 }
 
 // -- Maps
@@ -1377,7 +1448,7 @@ function markersTab() {
       ...list.map((mk) => h('button', {
         class: `item${mk.id === state.selectedMarker ? ' active' : ''}`,
         onclick: () => update(() => (state.selectedMarker = mk.id)),
-      }, icon(materialIcon(category(mk.category)?.icon), category(mk.category)?.color), mk.name))),
+      }, typeIcon(category(mk.category), category(mk.category)?.color), mk.name))),
   );
 }
 
@@ -1507,6 +1578,8 @@ function exportTab() {
       layouts: state.layouts,
       pieces: Object.fromEntries(Object.entries(state.pieceImages).map(([id, imgs]) =>
         [id, Object.fromEntries(Object.entries(imgs).map(([f, img]) => [f, img.blob]))])),
+      icons: Object.fromEntries(await Promise.all(Object.entries(state.icons).map(async ([path, url]) =>
+        [path, await dataUrlToBlob(url)] as const))),
     });
     // The new tiles now stand for these maps; later exports carry them through.
     for (const m of composed) {

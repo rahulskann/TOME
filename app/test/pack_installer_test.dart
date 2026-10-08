@@ -25,6 +25,11 @@ String manifest({String version = '1.0.0', int? bytes}) => jsonEncode({
       'id': 'a.pack',
       'name': 'A Pack',
       'version': version,
+      'categories': [
+        {'id': 'shard', 'name': 'Shard', 'icon': 'gem', 'iconImage': 'icons/shard.png'},
+        {'id': 'gone', 'name': 'Gone', 'iconImage': 'icons/missing.png'},
+        {'id': 'bad', 'name': 'Bad', 'iconImage': '../../escape.png'},
+      ],
       'maps': [
         {
           'id': 'world',
@@ -56,6 +61,7 @@ class FakeServer {
       return http.Response(manifest(version: version, bytes: zip.length), 200);
     }
     if (url == '$raw/master/silksong/markers/world.json') return http.Response(markersJson, 200);
+    if (url == '$raw/master/silksong/icons/shard.png') return http.Response.bytes([1, 2, 3], 200);
     if (url == release) {
       if (failZip) return http.Response('boom', 500);
       final range = req.headers['range'];
@@ -106,6 +112,21 @@ void main() {
     expect(progress.map((e) => e.fraction).whereType<double>().last, 1.0);
     expect(Directory(p.join(root.path, '.downloads', 'a.pack')).existsSync(), isFalse);
     expect(root.listSync().map((e) => p.basename(e.path)), isNot(contains(startsWith('.staging'))));
+  });
+
+  test('downloads custom icons; skips missing and unsafe ones', () async {
+    final server = FakeServer();
+    final remote = await fetchRemotePack('a/maps/silksong', client: server.client);
+    final pack = await installRemotePack(remote, client: server.client, root: root);
+
+    final shard = pack.manifest.category('shard')!;
+    expect(shard.iconFile, p.join(pack.dir, 'icons', 'shard.png'));
+    expect(File(shard.iconFile!).readAsBytesSync(), [1, 2, 3]);
+    // Missing: the install still succeeds and the badge falls back to the built-in icon.
+    expect(File(pack.manifest.category('gone')!.iconFile!).existsSync(), isFalse);
+    // Unsafe paths are dropped when parsing, so nothing is ever fetched or written for them.
+    expect(pack.manifest.category('bad')!.iconImage, isNull);
+    expect(server.requests.map((r) => r.url.path), isNot(contains(endsWith('escape.png'))));
   });
 
   test('resumes a partial download with a Range request', () async {

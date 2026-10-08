@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:tome/map/image_coords.dart';
 import 'package:tome/pack/category_icons.dart';
 import 'package:tome/pack/pack.dart';
@@ -230,5 +231,19 @@ void main() {
       final big = ImageCoords(maxZoom: 6, width: 16384, height: 12288);
       expect(big.toLatLng(16384, 12288).latitude.abs(), lessThanOrEqualTo(90));
     });
+  });
+
+  test('custom icon images: only safe paths, resolved inside the pack', () {
+    for (final ok in ['icons/a.png', 'icons/sub/b_c-1.webp', 'x.JPG']) {
+      expect(safeIconPath(ok), isTrue, reason: ok);
+    }
+    for (final bad in ['../a.png', 'icons/../../a.png', '/a.png', 'https://x/a.png', 'a.svg', 'a b.png', '']) {
+      expect(safeIconPath(bad), isFalse, reason: bad);
+    }
+    final c = MarkerCategory.fromJson({'id': 'k', 'name': 'K', 'iconImage': 'icons/k.png'}, root: 'packdir');
+    expect(c.iconImage, 'icons/k.png');
+    expect(c.iconFile, isNotNull);
+    expect(p.split(c.iconFile!), ['packdir', 'icons', 'k.png']);
+    expect(MarkerCategory.fromJson({'id': 'k', 'name': 'K', 'iconImage': 'icons/k.png'}).iconFile, isNull);
   });
 }

@@ -22,6 +22,8 @@
     }
     header strong { font-size: 16px; }
     header a { margin-left: auto; }
+    header a + a { margin-left: 0; }
+    .coffee { color: #f2c46d; text-decoration: none; display: inline-flex; gap: 4px; align-items: center; font-weight: 600; font-size: 14px; }
     a { color: var(--accent); }
     .button {
       display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
@@ -63,6 +65,7 @@
       .layout { display: block; }
       header .muted { display: none; }
       header .button { white-space: nowrap; }
+      header .coffee .label { display: none; }
     }
   </style>
 </head>
@@ -70,6 +73,7 @@
   <header>
     <strong>TOME Studio Guide</strong>
     <span class="muted" style="color: var(--muted)">Make an offline map pack, step by step.</span>
+    <a class="coffee" href="https://buymeacoffee.com/rahulskann" target="_blank" rel="noopener"><span class="material-icons">local_cafe</span><span class="label">Support</span></a>
     <a class="button" href="/"><span class="material-icons">map</span>Open the studio</a>
   </header>
   <div class="layout">
@@ -84,6 +88,7 @@
       <a href="#export">Export and publish</a>
       <a href="#edit">Editing a published pack</a>
       <a href="#faq">Good to know</a>
+      <a href="#support">Support TOME</a>
     </nav>
     <article>
       <h1>Make a map pack</h1>
@@ -126,6 +131,8 @@
         headings in the app's filter panel (Collectibles, Navigation, Bosses…).</p>
       <ul>
         <li>Pick a <strong>colour</strong> and an <strong>icon</strong> so types are easy to tell apart at a glance.</li>
+        <li>Want the game's own icon? <span class="ui">Upload icon image</span> takes a small picture (a PNG with a
+          see-through background works best). It's drawn inside the type's coloured circle, in the studio and in the app.</li>
         <li>Add a <strong>wiki page</strong> if your pack has a wiki base URL (set in <span class="ui">Pack</span>),
           and the app links to it.</li>
       </ul>
@@ -244,6 +251,10 @@
       <h3>Can I use art from the game?</h3>
       <p>Credit where it came from, and respect the owner's wishes. Fan packs should be free. Use the reference image
         for anything you're not allowed to share: it stays on your computer.</p>
+      <h2 id="support">Support TOME</h2>
+      <p>TOME and TOME Studio are free, with no ads. If they're useful to you, you can
+        <a href="https://buymeacoffee.com/rahulskann" target="_blank" rel="noopener">buy me a coffee</a>: it helps keep the site running and
+        funds future projects. Sharing your packs helps just as much.</p>
       <p style="margin-top: 40px"><a class="button" href="/"><span class="material-icons">map</span>Open the studio</a>
         &nbsp; <a href="https://github.com/rahulskann/TOME/blob/main/docs/pack-format.md">Pack format reference</a></p>
     </article>

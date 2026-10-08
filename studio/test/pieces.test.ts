@@ -162,3 +162,36 @@ describe('composed maps', () => {
     expect(Object.keys(opened.pieces?.pharloom ?? {})).toEqual(['source/moss-grotto.png']);
   });
 });
+
+describe('custom type icons', () => {
+  it('only accepts paths the app will load', async () => {
+    const { safeIconPath, iconPathFor } = await import('../src/model');
+    expect(safeIconPath(iconPathFor('mask_shard'))).toBe(true);
+    expect(safeIconPath('icons/a b.png')).toBe(false);
+    expect(safeIconPath('../secret.png')).toBe(false);
+    expect(safeIconPath('/abs/icon.png')).toBe(false);
+    expect(safeIconPath('https://x.com/i.png')).toBe(false);
+    expect(safeIconPath('icons/i.svg')).toBe(false);
+  });
+
+  it('round-trips icon images through a zip, writing only used ones', async () => {
+    const pack = newPack();
+    pack.maps.push(mapForImage('m', 'M', 100, 100));
+    pack.categories = [{ id: 'shard', name: 'Shard', iconImage: 'icons/shard.png' }];
+    const zipBlob = await exportPack(pack, { m: [] }, {}, {
+      folderName: 'p',
+      icons: { 'icons/shard.png': new Blob(['PNG']), 'icons/old.png': new Blob(['OLD']) },
+    });
+    const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer());
+    expect(zip.file('p/icons/shard.png')).not.toBeNull();
+    expect(zip.file('p/icons/old.png')).toBeNull();
+    const [opened] = await importPackZip(await zipBlob.arrayBuffer());
+    expect(Object.keys(opened.icons ?? {})).toEqual(['icons/shard.png']);
+  });
+
+  it('flags unsafe icon paths', () => {
+    const pack = newPack();
+    pack.categories = [{ id: 'x', name: 'X', iconImage: '../x.png' }];
+    expect(validate(pack, {}).some((p) => p.level === 'error' && /icon image path/.test(p.message))).toBe(true);
+  });
+});

@@ -18,6 +18,8 @@ export interface Category {
   group?: string;
   color?: string;
   icon?: string;
+  /** A small image in the pack (e.g. icons/mask_shard.png) drawn instead of `icon`. */
+  iconImage?: string;
   wiki?: string;
   description?: string;
   source?: Source;
@@ -177,6 +179,13 @@ export function mapForImage(id: string, name: string, width: number, height: num
 
 export const markersPath = (m: MapDef) => m.markers ?? `markers/${m.id}.json`;
 
+/** Same rule as the app: a relative path inside the pack, to a PNG, WebP or JPEG. */
+export const safeIconPath = (path: string) =>
+  /^[\w.-]+(\/[\w.-]+)*\.(png|webp|jpe?g)$/i.test(path) && !path.split('/').includes('..');
+
+/** Where a type's uploaded icon is stored in the pack. */
+export const iconPathFor = (categoryId: string) => `icons/${categoryId}.png`;
+
 export interface Problem {
   level: 'error' | 'warning';
   message: string;
@@ -202,6 +211,9 @@ export function validate(pack: Pack, markers: Record<string, Marker[]>): Problem
     if (cats.has(c.id)) err(`Two types share the id "${c.id}".`);
     cats.add(c.id);
     if (c.group && !groups.has(c.group)) warn(`Type "${c.name}" is in a group that no longer exists.`);
+    if (c.iconImage !== undefined && !safeIconPath(c.iconImage)) {
+      err(`Type "${c.name}" has an icon image path the app won't load ("${c.iconImage}").`);
+    }
   }
 
   const mapIds = new Set<string>();

@@ -61,7 +61,8 @@ Future<List<InstalledPack>> listInstalledPacks(
 Future<InstalledPack> openInstalledPack(String dir) async {
   final manifest = PackManifest.fromJson(
       jsonDecode(await File(p.join(dir, 'pack.json')).readAsString())
-          as Map<String, dynamic>);
+          as Map<String, dynamic>,
+      root: dir);
   final markers = <String, List<MapMarker>>{};
   for (final map in manifest.maps) {
     final file = File(p.join(dir, map.markersFile));

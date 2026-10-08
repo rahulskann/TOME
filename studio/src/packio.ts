@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 import { packFolderCandidates } from './location';
 import { layoutForExport } from './compose';
-import { type Layout, type MapDef, type Marker, type Pack, markersPath } from './model';
+import { type Layout, type MapDef, type Marker, type Pack, markersPath, safeIconPath } from './model';
 
 export interface OpenedPack {
   pack: Pack;
@@ -14,6 +14,19 @@ export interface OpenedPack {
   /** Layouts of composed maps, by map id, and their piece images by file. */
   layouts?: Record<string, Layout>;
   pieces?: Record<string, Record<string, Blob>>;
+  /** Custom type icons, by their path in the pack. */
+  icons?: Record<string, Blob>;
+}
+
+/** Reads every type's icon image that exists. */
+async function readIcons(pack: Pack, readBlob: (path: string) => Promise<Blob | undefined>) {
+  const icons: Record<string, Blob> = {};
+  for (const c of pack.categories ?? []) {
+    if (!c.iconImage || !safeIconPath(c.iconImage) || icons[c.iconImage]) continue;
+    const blob = await readBlob(c.iconImage);
+    if (blob) icons[c.iconImage] = blob;
+  }
+  return icons;
 }
 
 const isLayout = (v: unknown): v is Layout =>
@@ -110,7 +123,8 @@ export async function importPackZip(data: Blob | ArrayBuffer): Promise<OpenedPac
     const { layouts, pieces } = await readLayouts(pack, top,
       async (f) => zip.file(folder + f)?.async('string'),
       async (f) => zip.file(folder + f)?.async('blob'));
-    packs.push({ pack, markers, folder, tileZips, layouts, pieces });
+    const icons = await readIcons(pack, async (f) => zip.file(folder + f)?.async('blob'));
+    packs.push({ pack, markers, folder, tileZips, layouts, pieces, icons });
   }
   if (packs.length === 0) throw new Error('The pack.json files in that zip aren\'t TOME packs.');
   return packs;
@@ -149,7 +163,8 @@ export async function openFromLink(input: string, fetcher: typeof fetch = fetch)
     const { layouts, pieces } = await readLayouts(pack, ['layout.json'],
       async (f) => (await get(f))?.text(),
       async (f) => (await get(f))?.blob());
-    return { pack, markers, folder, layouts, pieces };
+    const icons = await readIcons(pack, async (f) => (await get(f))?.blob());
+    return { pack, markers, folder, layouts, pieces, icons };
   }
   throw new Error(`No pack.json found at ${candidates[0]}`);
 }
@@ -175,6 +190,8 @@ export async function exportPack(
     /** Composed maps: their layouts and piece images, written as layout files and source images. */
     layouts?: Record<string, Layout>;
     pieces?: Record<string, Record<string, Blob>>;
+    /** Custom type icons by path; only ones a type uses are written. */
+    icons?: Record<string, Blob>;
   } = {},
 ): Promise<Blob> {
   const zip = new JSZip();
@@ -202,6 +219,10 @@ export async function exportPack(
         if (blob && !p.reference) folder.file(p.file, blob);
       }
     }
+  }
+  for (const c of finalPack.categories ?? []) {
+    const icon = c.iconImage && options.icons?.[c.iconImage];
+    if (icon) folder.file(c.iconImage!, icon);
   }
   folder.file('pack.json', json(finalPack));
   if (options.notes ?? true) folder.file('PUBLISHING.md', publishingNotes(finalPack, Object.keys(newTiles)));

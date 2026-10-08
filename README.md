@@ -44,6 +44,11 @@ Players add a pack in the app by its link, e.g. `rahulskann/demo_maps/silksong`.
 
 Early development. See [docs/roadmap.md](docs/roadmap.md).
 
+## Support
+
+TOME is free. If it's useful to you, you can [buy me a coffee](https://buymeacoffee.com/rahulskann):
+it helps keep the map maker online and funds future projects.
+
 ## License
 
 [MIT](LICENSE)

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../pack/category_icons.dart';
@@ -28,9 +30,32 @@ class CategoryBadge extends StatelessWidget {
         border: Border.all(color: Colors.white, width: size / 14),
         boxShadow: found ? null : const [BoxShadow(blurRadius: 4, color: Colors.black54)],
       ),
-      child: Icon(categoryIcon(category?.icon), size: size * 0.55, color: onColor),
+      child: _symbol(onColor),
     );
     if (!found) return badge;
+    return _withTick(badge);
+  }
+
+  /// The pack's own icon image if it has one, else the built-in icon.
+  Widget _symbol(Color onColor) {
+    final builtIn = Icon(categoryIcon(category?.icon), size: size * 0.55, color: onColor);
+    final file = category?.iconFile;
+    if (file == null) return builtIn;
+    final px = size * 0.72;
+    return Center(
+      child: Image.file(
+        File(file),
+        width: px,
+        height: px,
+        fit: BoxFit.contain,
+        cacheWidth: 128, // icons are at most 128px; don't decode more
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => builtIn,
+      ),
+    );
+  }
+
+  Widget _withTick(Widget badge) {
     final tick = size * 0.5;
     return SizedBox(
       width: size,

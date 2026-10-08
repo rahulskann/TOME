@@ -67,6 +67,13 @@ def stage(pack_dir: Path, out: Path) -> dict:
             snapshot = out / SNAPSHOT_DIR / m["markers"]
             snapshot.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(pack_dir / m["markers"], snapshot)
+    # Custom type icons (optional, like in the app: a missing one falls back).
+    for c in manifest.get("categories", []):
+        icon = c.get("iconImage")
+        if icon and ".." not in icon.split("/") and (pack_dir / icon).is_file():
+            dst = out / icon
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(pack_dir / icon, dst)
     # Record where the pack is published (from its release URLs), so the app's
     # "Check for update" works on sideloaded packs too.
     link = guess_pack_link(manifest)

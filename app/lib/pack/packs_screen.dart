@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../about.dart';
 import '../map/map_screen.dart';
 import '../map/marker_filter.dart';
 import '../progress/progress_store.dart';
@@ -156,7 +157,16 @@ class _PacksScreenState extends State<PacksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('TOME')),
+      appBar: AppBar(
+        title: const Text('TOME'),
+        actions: [
+          IconButton(
+            tooltip: 'About, make a pack, support',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => showTomeAbout(context),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addPack,
         icon: const Icon(Icons.add),

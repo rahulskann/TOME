@@ -122,7 +122,9 @@ h2 { display: flex; align-items: center; gap: 6px; }
 .guide-link::before { content: 'help_outline'; font-family: 'Material Icons'; font-size: 18px; }
 .guide-link:hover { color: var(--accent); }
 header .guide { font-weight: 600; display: inline-flex; gap: 4px; align-items: center; }
-header .guide + a { margin-left: 12px; }
+header .guide ~ a { margin-left: 12px; }
+header .support { display: inline-flex; gap: 4px; align-items: center; color: #f2c46d; }
+header .support .material-icons { font-size: 18px; }
 header .guide .material-icons { font-size: 18px; }
 
 .start h2 { margin-top: 4px; }
@@ -137,3 +139,7 @@ button.big small { margin: 0; color: var(--muted); }
 .checklist .step.done { color: #7fd29a; }
 .checklist .step.next { color: var(--text); font-weight: 600; }
 .checklist .step.next .material-icons { color: var(--accent); }
+
+/* Custom type icons: drawn inside the coloured circle, like the app. */
+.type-img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+.pin .type-img { width: 20px; height: 20px; }

@@ -63,7 +63,7 @@ Tile archives are attached to a GitHub Release, not committed.
 | `version` | yes | Semver. Bump it to make the app offer an update. |
 | `wiki` | no | Base URL that wiki page names are appended to (spaces become `_`). Lets markers and categories link to a wiki by page name. |
 | `categoryGroups` | no | Headings that categories are filed under in the filter panel, in display order. |
-| `categories` | no | Marker types, in display order. Each has `id`, `name`, and optionally `group` (a `categoryGroups` id), `color` (`#RRGGBB`) and `icon` (see below). Categories with no group are listed under "Other". A category's `wiki` page is the default link for its markers. A category's `description` (with optional `source`) is shown as "About …" on each of its markers. |
+| `categories` | no | Marker types, in display order. Each has `id`, `name`, and optionally `group` (a `categoryGroups` id), `color` (`#RRGGBB`), `icon` and `iconImage` (see below). Categories with no group are listed under "Other". A category's `wiki` page is the default link for its markers. A category's `description` (with optional `source`) is shown as "About …" on each of its markers. |
 | `maps[].id` | yes | Unique within the pack. |
 | `maps[].image` | yes | Pixel size of the original full-resolution image. |
 | `maps[].maxZoom` | yes | Zoom level where tiles are at native image resolution. The slicer prints this. |
@@ -155,6 +155,20 @@ neighbours. Keep the canvas size fixed as you add regions so marker positions ne
 `icon` must be one of these built-in names (unknown names fall back to `circle`):
 
 `circle`, `star`, `heart`, `chest`, `key`, `gem`, `coin`, `shield`, `book`, `scroll`, `flag`, `door`, `bench`, `bell`, `boss`, `enemy`, `npc`, `shop`, `quest`, `secret`, `puzzle`, `travel`, `save`, `tool`, `skill`, `upgrade`, `map`, `music`, `flower`, `fish`, `bug`, `water`, `note`
+
+#### Custom icon images
+
+A category can also bring its own picture, so packs aren't limited to the built-in set:
+
+```json
+{ "id": "mask_shard", "name": "Mask Shards", "icon": "heart", "iconImage": "icons/mask_shard.png" }
+```
+
+`iconImage` is a path inside the pack folder to a PNG, WebP or JPEG, about 128×128 px with a
+transparent background. The app downloads it with the markers and draws it inside the category's
+coloured circle; `icon` is still used if the image is missing or the app is older. Paths must be
+relative (no `..`, no URLs). TOME Studio's *Upload icon image* (Types tab) makes these for you.
+Icons live in the repo with `pack.json`, not in the release.
 
 Each game decides its own groups and categories; the app has no built-in notion of
 "collectible" or "boss". A category's `id` is what markers reference and what the app

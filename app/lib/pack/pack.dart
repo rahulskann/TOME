@@ -2,6 +2,8 @@
 import 'dart:math' as math;
 import 'dart:ui' show Color;
 
+import 'package:path/path.dart' as p;
+
 /// The newest `schemaVersion` this build of the app understands.
 const int supportedSchemaVersion = 1;
 
@@ -35,7 +37,8 @@ class PackManifest {
   final List<MarkerCategory> categories;
   final List<MapDefinition> maps;
 
-  factory PackManifest.fromJson(Map<String, dynamic> json) {
+  /// [root] is the installed pack's folder, for finding custom icon images.
+  factory PackManifest.fromJson(Map<String, dynamic> json, {String? root}) {
     final schemaVersion = json['schemaVersion'] as int;
     if (schemaVersion > supportedSchemaVersion) {
       throw FormatException(
@@ -57,7 +60,7 @@ class PackManifest {
       ],
       categories: [
         for (final c in (json['categories'] as List? ?? const []))
-          MarkerCategory.fromJson(c as Map<String, dynamic>),
+          MarkerCategory.fromJson(c as Map<String, dynamic>, root: root),
       ],
       maps: [
         for (final m in json['maps'] as List)
@@ -202,6 +205,8 @@ class MarkerCategory {
     this.wiki,
     this.description,
     this.source,
+    this.iconImage,
+    this.iconFile,
   });
 
   final String id;
@@ -211,8 +216,16 @@ class MarkerCategory {
   final String? group;
   final Color? color;
 
-  /// Name from the built-in icon set (see `category_icons.dart`).
+  /// Name from the built-in icon set (see `category_icons.dart`). Also the
+  /// fallback when [iconImage] is missing.
   final String? icon;
+
+  /// A small image in the pack (e.g. `icons/mask_shard.png`) drawn instead of
+  /// [icon]. Only safe relative paths are kept (see [safeIconPath]).
+  final String? iconImage;
+
+  /// Where [iconImage] is on this device, when read from an installed pack.
+  final String? iconFile;
 
   /// Wiki page for markers of this category that don't name their own.
   final String? wiki;
@@ -224,17 +237,30 @@ class MarkerCategory {
   /// Where [description] came from, for credit.
   final ContentSource? source;
 
-  factory MarkerCategory.fromJson(Map<String, dynamic> json) => MarkerCategory(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        group: json['group'] as String?,
-        color: parseHexColor(json['color'] as String?),
-        icon: json['icon'] as String?,
-        wiki: json['wiki'] as String?,
-        description: json['description'] as String?,
-        source: ContentSource.fromJsonOrNull(json['source']),
-      );
+  /// [root] is the installed pack's folder, for finding [iconImage].
+  factory MarkerCategory.fromJson(Map<String, dynamic> json, {String? root}) {
+    final image = json['iconImage'] as String?;
+    final safe = image != null && safeIconPath(image) ? image : null;
+    return MarkerCategory(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      group: json['group'] as String?,
+      color: parseHexColor(json['color'] as String?),
+      icon: json['icon'] as String?,
+      wiki: json['wiki'] as String?,
+      description: json['description'] as String?,
+      source: ContentSource.fromJsonOrNull(json['source']),
+      iconImage: safe,
+      iconFile: safe != null && root != null ? p.joinAll([root, ...safe.split('/')]) : null,
+    );
+  }
 }
+
+/// Whether [path] is a relative path inside a pack to a PNG, WebP or JPEG
+/// image: no `..`, no leading slash, no URL. Same rule as TOME Studio.
+bool safeIconPath(String path) =>
+    RegExp(r'^[\w.-]+(/[\w.-]+)*\.(png|webp|jpe?g)$', caseSensitive: false).hasMatch(path) &&
+    !path.split('/').contains('..');
 
 class MapDefinition {
   const MapDefinition({
