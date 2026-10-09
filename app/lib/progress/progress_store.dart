@@ -100,7 +100,7 @@ String encodeProgress(String packId, Map<String, DateTime> found) {
 Map<String, DateTime> parseProgress(String text, String expectedPackId) {
   final json = jsonDecode(text);
   if (json is! Map<String, dynamic> || json['format'] != 'tome-progress') {
-    throw const FormatException('Not a TOME progress file');
+    throw const FormatException('Not a progress file saved by TOME');
   }
   if ((json['version'] as int? ?? 0) > 1) {
     throw const FormatException('Progress file is from a newer version of TOME');

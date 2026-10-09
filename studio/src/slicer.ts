@@ -1,4 +1,4 @@
-// Cut an image into a TOME tile pyramid in the browser.
+// Cut an image into a tile pyramid for TOME, in the browser.
 // Same rules as tools/slicer/slice_map.py: maxZoom is native resolution; each
 // lower level halves the previous one (rounding up); edge tiles are padded
 // with transparency to a full tile; tiles are {z}/{x}/{y}.png.

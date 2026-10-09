@@ -163,7 +163,7 @@ describe('zip round trip', () => {
     expect(await again.tileZips!.world.text()).toBe('TILES');
   });
 
-  it('rejects zips without a TOME pack', async () => {
+  it('rejects zips without a pack in them', async () => {
     const zip = new JSZip();
     zip.file('a/pack.json', '{"name": "npm thing"}');
     await expect(importPackZip(await zip.generateAsync({ type: 'arraybuffer' }))).rejects.toThrow(/aren't TOME packs/);

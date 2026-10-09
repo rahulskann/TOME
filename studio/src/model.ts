@@ -1,4 +1,4 @@
-// The TOME pack format (docs/pack-format.md), as plain JSON-shaped types.
+// TOME's pack format (docs/pack-format.md), as plain JSON-shaped types.
 // Kept loose on purpose: unknown fields from newer packs are preserved.
 
 export interface Source {

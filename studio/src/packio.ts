@@ -78,7 +78,7 @@ async function readLayouts(
 
 /**
  * Every pack in a zip: a zipped pack folder, a whole repo from GitHub's
- * "Download ZIP" (packs in subfolders), or a TOME Studio export.
+ * "Download ZIP" (packs in subfolders), or an export from TOME Studio.
  * Tile zips are picked up from each map's relative archive path, or from
  * out/<map>-tiles.zip / the archive URL's file name for released packs.
  */
@@ -241,7 +241,7 @@ function publishingNotes(pack: Pack, sliced: string[]): string {
 
 1. Put this folder in a public GitHub repo (it can be a subfolder), e.g. \`yourname/yourrepo/${pack.id}\`.
    Keep \`out/\` out of git (add \`out/\` to .gitignore): tile zips go in a release instead.
-2. From the TOME repo, point pack.json at a release and get the upload command:
+2. From TOME's repo (github.com/rahulskann/TOME), point pack.json at a release and get the upload command:
 
        python tools/publish_pack.py path/to/${pack.id} --repo yourname/yourrepo
 

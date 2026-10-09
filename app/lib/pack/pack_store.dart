@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
+import 'package:flutter/foundation.dart' show FlutterError;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -124,6 +125,17 @@ Future<void> installBundledPack(String assetRoot) async {
     final bytes = await rootBundle.load('$assetRoot/${map.tilesArchive}');
     await extractArchiveToDisk(ZipDecoder().decodeBytes(bytes.buffer.asUint8List()),
         p.join(dir.path, map.id, 'tiles'));
+  }
+  // Custom type icons (list their folder under assets in pubspec.yaml).
+  for (final path in {for (final c in manifest.categories) ?c.iconImage}) {
+    try {
+      final icon = await rootBundle.load('$assetRoot/$path');
+      final out = File(p.joinAll([dir.path, ...path.split('/')]));
+      await out.parent.create(recursive: true);
+      await out.writeAsBytes(icon.buffer.asUint8List(icon.offsetInBytes, icon.lengthInBytes));
+    } on FlutterError {
+      // Not bundled: the type falls back to its built-in icon.
+    }
   }
   // Marks it as shipped with the app (not deletable or updatable from a link).
   await File(p.join(dir.path, '.bundled')).writeAsString('');

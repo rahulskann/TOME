@@ -5,7 +5,7 @@
     "category": "landmark",
     "x": 1024,
     "y": 768,
-    "description": "The middle of the map. Useful for checking coordinate conversion.",
+    "description": "An old waystone at the heart of the continent, between Greenvale and the Emberpeaks.",
     "trackable": false
   },
   {
@@ -14,7 +14,7 @@
     "category": "collectible",
     "x": 128,
     "y": 128,
-    "description": "Should appear near the top-left corner."
+    "description": "Half-buried in snow on the Isle of Thorns. The Rusty Key opens it."
   },
   {
     "id": "corner_chest_se",
@@ -22,7 +22,7 @@
     "category": "collectible",
     "x": 1920,
     "y": 1408,
-    "description": "Should appear near the bottom-right corner."
+    "description": "Hidden on Lantern Isle, in the far south-east."
   },
   {
     "id": "west_key",
@@ -30,7 +30,7 @@
     "category": "key",
     "x": 320,
     "y": 1180,
-    "description": "Opens the North-West Chest."
+    "description": "Lost in the Mirewood marshes. Opens the North-West Chest."
   },
   {
     "id": "east_bench",
@@ -38,7 +38,136 @@
     "category": "bench",
     "x": 1700,
     "y": 520,
-    "description": "Rest point. Not something you collect, so it can't be checked off.",
+    "description": "A rest stop near the eastern coast. Not something you collect, so it can't be checked off.",
     "trackable": false
+  },
+  {
+    "id": "region_frosthelm",
+    "name": "Frosthelm",
+    "category": "region",
+    "x": 1010,
+    "y": 300,
+    "description": "The frozen north: tundra, pine forest and snowbound peaks.",
+    "trackable": false
+  },
+  {
+    "id": "region_greenvale",
+    "name": "Greenvale",
+    "category": "region",
+    "x": 640,
+    "y": 800,
+    "description": "Rolling grassland and old woods around Mirror Lake, at the heart of the continent.",
+    "trackable": false
+  },
+  {
+    "id": "region_emberpeaks",
+    "name": "Emberpeaks",
+    "category": "region",
+    "x": 1330,
+    "y": 640,
+    "description": "A long mountain chain. Its rivers run down to the eastern sea.",
+    "trackable": false
+  },
+  {
+    "id": "region_sunscar",
+    "name": "Sunscar Wastes",
+    "category": "region",
+    "x": 1160,
+    "y": 1150,
+    "description": "Sun-baked dunes and dry hills in the south.",
+    "trackable": false
+  },
+  {
+    "id": "region_mirewood",
+    "name": "Mirewood",
+    "category": "region",
+    "x": 400,
+    "y": 1050,
+    "description": "Marsh and thick forest on the south-western peninsula.",
+    "trackable": false
+  },
+  {
+    "id": "region_isle_of_thorns",
+    "name": "Isle of Thorns",
+    "category": "region",
+    "x": 175,
+    "y": 215,
+    "description": "A cold island off the north-west coast.",
+    "trackable": false
+  },
+  {
+    "id": "region_lantern_isle",
+    "name": "Lantern Isle",
+    "category": "region",
+    "x": 1872,
+    "y": 1345,
+    "description": "A small island in the far south-east.",
+    "trackable": false
+  },
+  {
+    "id": "chest_frostpeak",
+    "name": "Frostpeak Chest",
+    "category": "collectible",
+    "x": 1472,
+    "y": 392,
+    "description": "Hint: where the river is born, climb until the snow turns to stone. It's by the peak that leans left."
+  },
+  {
+    "id": "chest_twin_peaks",
+    "name": "Twin Peaks Chest",
+    "category": "collectible",
+    "x": 1432,
+    "y": 888,
+    "description": "Hint: halfway down the Emberpeaks, wedged between two peaks that look like twins."
+  },
+  {
+    "id": "chest_woodland",
+    "name": "Woodland Chest",
+    "category": "collectible",
+    "x": 848,
+    "y": 1144,
+    "description": "Hint: follow the edge of the woods towards the desert. It waits under the last tall oak."
+  },
+  {
+    "id": "fishing_north_shore",
+    "name": "North Shore Pier",
+    "category": "fishing",
+    "x": 744,
+    "y": 576,
+    "description": "Calm water at dawn. Silverfin bite here.",
+    "trackable": false
+  },
+  {
+    "id": "fishing_reed_bank",
+    "name": "Reed Bank",
+    "category": "fishing",
+    "x": 856,
+    "y": 752,
+    "description": "Shallow reeds where the pike hide.",
+    "trackable": false
+  },
+  {
+    "id": "mine_copper",
+    "name": "Old Copper Mine",
+    "category": "mine",
+    "x": 1312,
+    "y": 408,
+    "description": "Abandoned when the snows came. Bring a lantern."
+  },
+  {
+    "id": "mine_gem",
+    "name": "Glittering Mine",
+    "category": "mine",
+    "x": 1344,
+    "y": 1016,
+    "description": "Crystals on the walls catch the desert sun."
+  },
+  {
+    "id": "mine_deepiron",
+    "name": "Deepiron Mine",
+    "category": "mine",
+    "x": 1592,
+    "y": 800,
+    "description": "The deepest shaft in the Emberpeaks. Listen for the echo."
   }
 ]

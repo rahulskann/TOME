@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "id": "tome.demo",
-  "name": "TOME Demo Pack",
+  "name": "TOME Demo",
   "game": "Demo",
   "author": "TOME contributors",
-  "version": "0.2.0",
-  "description": "A tiny pack for testing the app. Build the tiles with the slicer (see README).",
+  "version": "1.0.4",
+  "description": "A made-up continent that shows what TOME can do: any map, your own marker types (even with your own icons), notes and hints, and progress you check off. Make your own with TOME Studio.",
   "categoryGroups": [
     {
       "id": "loot",
@@ -39,17 +39,43 @@
       "icon": "flag"
     },
     {
+      "id": "region",
+      "name": "Regions",
+      "group": "places",
+      "color": "#E6D3A3",
+      "icon": "map",
+      "description": "Named areas of the map. Tap one to read about it."
+    },
+    {
       "id": "bench",
       "name": "Benches",
       "group": "places",
       "color": "#8FD19E",
       "icon": "bench"
+    },
+    {
+      "id": "fishing",
+      "name": "Fishing Spots",
+      "group": "places",
+      "color": "#4FA3D9",
+      "icon": "fish",
+      "iconImage": "icons/fishing.png",
+      "description": "A custom marker type with its own icon image, made in TOME Studio."
+    },
+    {
+      "id": "mine",
+      "name": "Mines",
+      "group": "places",
+      "color": "#B07A4A",
+      "icon": "gem",
+      "iconImage": "icons/mine.png",
+      "description": "Another custom type with its own icon. Check each one off once you have cleared it."
     }
   ],
   "maps": [
     {
       "id": "world",
-      "name": "Demo World",
+      "name": "Demo Map 1",
       "image": {
         "width": 2048,
         "height": 1536
@@ -66,7 +92,8 @@
         "x": 1024,
         "y": 768,
         "zoom": 1
-      }
+      },
+      "description": "A made-up continent of tundra, forest, grassland, mountains and desert, with an island off each far corner."
     }
   ]
 }

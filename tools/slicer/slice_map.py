@@ -1,4 +1,4 @@
-"""Slice a large map image into a TOME tile pyramid.
+"""Slice a large map image into a tile pyramid for TOME.
 
 The highest zoom level (maxZoom) is the image at native resolution; each lower
 level halves it, down to minZoom. Tiles are written as {z}/{x}/{y}.png and

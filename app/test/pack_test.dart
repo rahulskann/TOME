@@ -45,6 +45,16 @@ void main() {
       }
     });
 
+    test('bundles the icon images its custom types use', () {
+      final custom = [for (final c in manifest.categories) if (c.iconImage != null) c];
+      expect(custom, isNotEmpty, reason: 'the demo shows off custom icons');
+      for (final c in custom) {
+        expect(File('$_demo/${c.iconImage}').existsSync(), isTrue, reason: c.id);
+        expect(File('$_demo/${c.iconImage}').readAsBytesSync(),
+            File('../examples/demo-pack/${c.iconImage}').readAsBytesSync(), reason: c.id);
+      }
+    });
+
     test('bundled copy matches examples/demo-pack', () {
       for (final f in ['pack.json', 'markers/world.json']) {
         expect(File('$_demo/$f').readAsStringSync(),

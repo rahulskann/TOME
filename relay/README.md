@@ -3,7 +3,7 @@
 Browsers can't read GitHub release downloads (GitHub's storage doesn't send CORS headers),
 so TOME Studio can't load a published pack's map tiles by itself. This Worker fetches
 **GitHub release `.zip` files only**, for **the studio's own addresses only**, and streams
-them back with the right headers. The TOME app doesn't need it (apps aren't browsers).
+them back with the right headers. TOME itself doesn't need it (apps aren't browsers).
 
 Free plan: 100,000 requests a day; files stream through, so large tile zips are fine.
 

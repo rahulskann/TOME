@@ -1,6 +1,6 @@
 # app/
 
-The TOME Flutter app (Android, iOS, iPadOS).
+TOME's Flutter app (Android, iOS, iPadOS).
 
 ## Setup (Windows)
 
