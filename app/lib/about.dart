@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 const studioUrl = 'https://tome.rahulkannan.com';
 const guideUrl = 'https://tome.rahulkannan.com/guide.html';
 const sourceUrl = 'https://github.com/rahulskann/TOME';
+const privacyUrl = 'https://tome.rahulkannan.com/privacy.html';
 const supportUrl = 'https://buymeacoffee.com/rahulskann';
 
 Future<void> _open(String url) async {
@@ -47,6 +48,12 @@ void showTomeAbout(BuildContext context) {
         leading: const Icon(Icons.code),
         title: const Text('Source code'),
         onTap: () => _open(sourceUrl),
+      ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.privacy_tip_outlined),
+        title: const Text('Privacy policy'),
+        onTap: () => _open(privacyUrl),
       ),
     ],
   );

@@ -20,7 +20,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-APP_ID = "com.tomemaps.tome"
+APP_ID = "com.rahulkannan.tome"
 DEVICE_TMP = "/data/local/tmp/tome-sideload"
 
 

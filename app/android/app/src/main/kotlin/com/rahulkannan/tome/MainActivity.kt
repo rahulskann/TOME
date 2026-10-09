@@ -1,4 +1,4 @@
-package com.tomemaps.tome
+package com.rahulkannan.tome
 
 import io.flutter.embedding.android.FlutterActivity
 

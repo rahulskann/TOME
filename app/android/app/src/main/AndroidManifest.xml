@@ -2,7 +2,7 @@
     <!-- Packs are downloaded from GitHub. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="tome"
+        android:label="TOME"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,0 +1,9 @@
+{
+  "name": "tome-branding",
+  "private": true,
+  "type": "module",
+  "description": "Renders TOME's icon and store graphics (see build.py).",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

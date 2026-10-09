@@ -1,0 +1,6 @@
+# Copy to key.properties (same folder; it's gitignored) and fill in.
+# storeFile is the upload keystore made with keytool; keep it OUTSIDE the repo and backed up.
+storeFile=C:/Users/YOU/keys/tome-upload.jks
+storePassword=
+keyAlias=upload
+keyPassword=
