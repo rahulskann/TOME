@@ -97,7 +97,7 @@ class _AddPackScreenState extends State<AddPackScreen> {
                 autocorrect: false,
                 decoration: const InputDecoration(
                   labelText: 'Pack link',
-                  hintText: 'rahulskann/demo_maps/silksong',
+                  hintText: 'owner/repo/folder',
                   border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _find(),
