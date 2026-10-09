@@ -169,8 +169,8 @@ HEAD = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1
 
 FEATURE_TEXT = """
 <text x="556" y="226" font-family="Georgia, 'Times New Roman', serif" font-size="102" font-weight="700" letter-spacing="14" fill="#f1d48a">TOME</text>
-<text x="564" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="36" fill="#e9d9b8">Offline maps for any game</text>
-<text x="564" y="352" font-family="Segoe UI, Arial, sans-serif" font-size="24" fill="#cdb894">Track collectibles · Make your own packs</text>"""
+<text x="564" y="300" font-family="Georgia, 'Times New Roman', serif" font-size="36" fill="#e9d9b8">The Offline Map Engine</text>
+<text x="564" y="352" font-family="Segoe UI, Arial, sans-serif" font-size="24" fill="#cdb894">Games · hunts · local favourites</text>"""
 
 
 def write_all(gilded=True, edge=T_EDGE, prefix='icon'):

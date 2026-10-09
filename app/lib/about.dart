@@ -20,8 +20,11 @@ void showTomeAbout(BuildContext context) {
     applicationLegalese: 'Free and open source. Map packs are made by their authors.',
     children: [
       const SizedBox(height: 12),
-      const Text('Offline maps for any game. Add a pack from a GitHub link, then filter, '
-          'search and check things off, all without a connection.'),
+      const Text('The Offline Map Engine', style: TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 8),
+      const Text('Interactive maps that work with no connection. Made for games: find, filter and '
+          'check off everything. And for anything else worth mapping, like the pizza places locals '
+          'swear by or a scavenger hunt across town.'),
       const SizedBox(height: 12),
       ListTile(
         contentPadding: EdgeInsets.zero,

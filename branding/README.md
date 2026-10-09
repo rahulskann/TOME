@@ -11,7 +11,6 @@ gold edge, and the page lines are soft, so the T still reads at launcher sizes.
 | `icon-foreground.svg`, `icon-background.svg` | Android adaptive-icon layers (the seal sits inside the 66% safe zone) |
 | `play-icon-512.png` | Google Play store icon |
 | `play-feature-1024x500.png` | Google Play feature graphic |
-| `versions/saved/` | The chosen version (with its generator), kept while trying changes |
 
 ## Changing it
 
@@ -24,6 +23,9 @@ helpers: leather, the wax outline), then rebuild everything that uses the icon:
 
 That rewrites the app's launcher icons (`app/android/app/src/main/res/mipmap-*`), the
 website's `favicon.png` and `apple-touch-icon.png`, and the store graphics here.
+
+Earlier versions live in git history: check out an older `make_icon_3d.py` and rebuild to get
+one back.
 
 The relief comes from SVG lighting filters on a height map, which work per pixel, so
 everything is rendered once at 1024 px and scaled down rather than rendered small.

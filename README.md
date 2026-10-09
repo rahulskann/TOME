@@ -1,6 +1,8 @@
 # TOME
 
-**An offline-first interactive map engine for any game — video games, tabletop campaigns, homebrew worlds.**
+**The Offline Map Engine.** Interactive maps that work with no connection, built for games
+(video games, tabletop campaigns, homebrew worlds) and for anything else worth mapping and
+checking off: the pizza places locals swear by, a scavenger hunt across town, a trail or a campus.
 
 TOME is a native mobile app (iOS / iPadOS / Android) that works like an emulator for maps:
 the app is just the engine, and the content comes from **map packs** that anyone can

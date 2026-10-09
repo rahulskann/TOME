@@ -815,9 +815,9 @@ function packTab() {
 function startPanel() {
   return h('div', { class: 'card start' },
     h('h2', {}, 'Start here'),
-    h('p', { class: 'help' }, 'Make an offline map pack for the TOME app. Pick how to begin:'),
+    h('p', { class: 'help' }, 'Make an offline map pack for TOME: for a game, a hunt, or any places worth checking off. Pick how to begin:'),
     h('button', { class: 'big', onclick: () => filePicker((f) => void addImage(f).then(() => update(() => (state.tab = 'types')))) },
-      icon('add_photo_alternate'), h('span', {}, h('strong', {}, 'From a map image'), h('small', {}, "One picture of the game's map"))),
+      icon('add_photo_alternate'), h('span', {}, h('strong', {}, 'From a map image'), h('small', {}, 'One picture of the whole map'))),
     h('button', { class: 'big', onclick: () => filesPicker((fs) => void newMapFromPieces(fs)) },
       icon('dashboard'), h('span', {}, h('strong', {}, 'From several images'), h('small', {}, 'e.g. one per region, lined up on one canvas'))),
     h('button', { class: 'big', onclick: () => zipPicker(openZip) },
