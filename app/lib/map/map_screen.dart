@@ -665,6 +665,9 @@ class _MapScreenState extends State<MapScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
         content: Text(nowFound ? 'Found: ${marker.name}' : 'Not found: ${marker.name}'),
+        // Snack bars with an action stay until dismissed by default; this is a
+        // quick confirmation, so let it go after the usual few seconds.
+        persist: false,
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () => widget.progress.setFound(marker.id, !nowFound),

@@ -137,6 +137,12 @@ void main() {
     expect(find.text('Found: Shard'), findsOneWidget);
     expect(find.text('1/1'), findsOneWidget);
 
+    // The confirmation goes away on its own (it has an Undo button, which
+    // would otherwise keep it on screen until dismissed).
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('Found: Shard'), findsNothing);
+
     await tester.tap(find.text('1/1')); // the found counter toggles hide-found
     await tester.pumpAndSettle();
     expect(find.byType(CategoryBadge), findsNothing);
