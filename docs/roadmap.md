@@ -20,8 +20,11 @@ Releases go to the closed test first. Production needs 12 testers opted in for 1
       a new slot becomes the active one; slot names must differ.
       One storage change: per-slot progress, and un-ticks kept as `{done: false, updatedAt}` (so a
       future merge can't bring them back); v1 progress becomes the first slot automatically.
-- [ ] **1.1.2: widget and themes.** Widget: one pack each, small (count) or wide (name, slot, X/Y,
+- [x] **1.1.2: widget and themes.** Widget: one pack each, small (count) or wide (name, slot, X/Y,
       bar), opens the map. Themes: Dark (current, default) and Atlas (parchment, leather, gold).
+      The small widget also shows the pack name, to tell widgets apart; the theme is picked from the
+      palette button on the home screen, and the widget follows it. Debug builds are now
+      `com.rahulkannan.tome.dev` ("TOME dev"), installing beside the Play version.
 - [ ] **Your edits survive pack updates:** store on-device edits separately from the pack (shared
       by all slots, backed up); your version wins, with an "edited" badge and Reset to pack version.
 - [ ] **Marker photos** (top of the marker card, full screen on tap; add in edit mode) and a

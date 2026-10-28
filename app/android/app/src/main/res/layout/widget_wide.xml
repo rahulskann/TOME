@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wide widget: pack name, save slot, a progress bar and the count. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_dark"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="10dp">
+
+    <TextView
+        android:id="@+id/name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#FFE6E8EF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/slot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#FF9AA3B8"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ProgressBar
+            android:id="@+id/bar_dark"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="6dp"
+            android:layout_weight="1"
+            android:progressDrawable="@drawable/widget_progress_dark" />
+
+        <ProgressBar
+            android:id="@+id/bar_atlas"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="6dp"
+            android:layout_weight="1"
+            android:progressDrawable="@drawable/widget_progress_atlas"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:maxLines="1"
+            android:textColor="#FFF1D48A"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:maxLines="1"
+            android:textColor="#FF9AA3B8"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

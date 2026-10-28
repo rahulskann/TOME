@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget: one pack's progress. Each widget asks which pack
+     when placed (WidgetConfigActivity), and can be changed later by
+     long-pressing it. The app redraws widgets when progress changes. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.rahulkannan.tome.WidgetConfigActivity"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_wide"
+    android:minWidth="110dp"
+    android:minHeight="50dp"
+    android:minResizeWidth="60dp"
+    android:minResizeHeight="40dp"
+    android:previewLayout="@layout/widget_wide"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

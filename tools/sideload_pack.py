@@ -20,7 +20,9 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-APP_ID = "com.rahulkannan.tome"
+# The development build (flutter run / debug APK): run-as only works on debuggable
+# apps, and debug builds use their own id so they sit beside the Play version.
+APP_ID = "com.rahulkannan.tome.dev"
 DEVICE_TMP = "/data/local/tmp/tome-sideload"
 
 

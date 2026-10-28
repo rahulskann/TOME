@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_name">TOME progress</string>
+    <string name="widget_description">How much of a map pack you\'ve found</string>
+    <string name="widget_pick_title">Show which pack?</string>
+    <string name="widget_no_packs">Open TOME once, then add the widget again.</string>
+</resources>

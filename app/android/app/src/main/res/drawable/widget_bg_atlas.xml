@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget, Atlas theme: parchment with a leather edge. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFF3E6CC" />
+    <stroke android:width="2dp" android:color="#FF9C7C58" />
+    <corners android:radius="22dp" />
+</shape>

@@ -6,6 +6,8 @@ import '../about.dart';
 import '../map/map_screen.dart';
 import '../map/marker_filter.dart';
 import '../progress/progress_store.dart';
+import '../theme.dart';
+import '../widget/home_widget.dart';
 import 'add_pack_screen.dart';
 import 'known_packs.dart';
 import 'pack_installer.dart';
@@ -13,7 +15,10 @@ import 'pack_store.dart';
 
 /// Lists the packs installed on this device.
 class PacksScreen extends StatefulWidget {
-  const PacksScreen({super.key});
+  const PacksScreen({super.key, this.theme});
+
+  /// The app's theme choice; the picker is hidden without one (tests).
+  final ThemeSetting? theme;
 
   @override
   State<PacksScreen> createState() => _PacksScreenState();
@@ -28,6 +33,39 @@ class _PacksScreenState extends State<PacksScreen> {
   /// Progress per pack id, shared with the map screen so the cards update.
   final Map<String, ProgressStore> _progress = {};
 
+  late final _widgets = HomeWidgetSync(onOpenPack: _openById);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.theme?.addListener(_themeChanged);
+    _themeChanged();
+    // Opened by tapping a home-screen widget: go straight to that pack.
+    HomeWidgetSync.takeLaunchPack().then((id) {
+      if (id != null) _openById(id);
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.theme?.removeListener(_themeChanged);
+    _widgets.dispose();
+    super.dispose();
+  }
+
+  void _themeChanged() {
+    if (widget.theme case final t?) _widgets.update(theme: t.value);
+  }
+
+  /// Opens the pack with [id] on top of the home screen, once the list has loaded.
+  Future<void> _openById(String id) async {
+    final packs = await _packs;
+    final pack = packs.installed.where((p) => p.manifest.id == id).firstOrNull;
+    if (pack == null || !mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    await _open(pack);
+  }
+
   Future<_Packs> _load() async {
     _errors.clear();
     final broken = <String>{};
@@ -41,6 +79,7 @@ class _PacksScreenState extends State<PacksScreen> {
       _progress[pack.manifest.id] ??= await ProgressStore.load(pack.manifest.id);
     }
     unawaited(_fetchMissingIcons(packs));
+    _widgets.update(packs: packs, progress: _progress);
     // Packs added before but not on this phone (restored from a backup).
     final missing =
         await updateKnownPacks(packs, presentIds: broken).catchError((_) => <KnownPack>[]);
@@ -201,6 +240,16 @@ class _PacksScreenState extends State<PacksScreen> {
       appBar: AppBar(
         title: const Text('TOME'),
         actions: [
+          if (widget.theme case final theme?)
+            PopupMenuButton<AppTheme>(
+              tooltip: 'Theme',
+              icon: const Icon(Icons.palette_outlined),
+              onSelected: theme.choose,
+              itemBuilder: (_) => [
+                for (final t in AppTheme.values)
+                  CheckedPopupMenuItem(value: t, checked: t == theme.value, child: Text(t.label)),
+              ],
+            ),
           IconButton(
             tooltip: 'About, make a pack, support',
             icon: const Icon(Icons.info_outline),

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget's progress bar (atlas theme). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape><corners android:radius="3dp" /><solid android:color="#FFE3CEA8" /></shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip><shape><corners android:radius="3dp" /><solid android:color="#FF8E2A1E" /></shape></clip>
+    </item>
+</layer-list>

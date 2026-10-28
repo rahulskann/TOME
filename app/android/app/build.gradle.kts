@@ -37,6 +37,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "TOME"
     }
 
     signingConfigs {
@@ -53,6 +54,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+        }
+        // Development builds install beside the Play version (a different app id),
+        // so testing on a phone never touches the real TOME or its progress.
+        debug {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "TOME dev"
         }
     }
 }
