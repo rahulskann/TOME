@@ -6,10 +6,14 @@ import 'pack_store.dart';
 /// Add a pack from a link, or install an update found for an existing pack.
 /// Pops with the installed pack on success.
 class AddPackScreen extends StatefulWidget {
-  const AddPackScreen({super.key, this.update, this.replacesEdits = false});
+  const AddPackScreen({super.key, this.update, this.replacesEdits = false, this.initialLink});
 
   /// When set, skip the link step and offer this version as an update.
   final RemotePack? update;
+
+  /// A link to fill in and look up straight away (re-downloading a pack
+  /// restored from a backup).
+  final String? initialLink;
 
   /// The pack being updated has marker edits that the update will replace.
   final bool replacesEdits;
@@ -27,6 +31,17 @@ class _AddPackScreenState extends State<AddPackScreen> {
   CancelToken? _cancel;
 
   bool get _installing => _progress != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialLink case final link?) {
+      _link.text = link;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _find();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -92,7 +107,7 @@ class _AddPackScreenState extends State<AddPackScreen> {
               TextField(
                 controller: _link,
                 enabled: !_installing,
-                autofocus: true,
+                autofocus: widget.initialLink == null,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
                 decoration: const InputDecoration(

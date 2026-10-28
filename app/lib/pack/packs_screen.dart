@@ -7,6 +7,7 @@ import '../map/map_screen.dart';
 import '../map/marker_filter.dart';
 import '../progress/progress_store.dart';
 import 'add_pack_screen.dart';
+import 'known_packs.dart';
 import 'pack_installer.dart';
 import 'pack_store.dart';
 
@@ -18,23 +19,32 @@ class PacksScreen extends StatefulWidget {
   State<PacksScreen> createState() => _PacksScreenState();
 }
 
+typedef _Packs = ({List<InstalledPack> installed, List<KnownPack> missing});
+
 class _PacksScreenState extends State<PacksScreen> {
-  late Future<List<InstalledPack>> _packs = _load();
+  late Future<_Packs> _packs = _load();
   final List<String> _errors = [];
 
   /// Progress per pack id, shared with the map screen so the cards update.
   final Map<String, ProgressStore> _progress = {};
 
-  Future<List<InstalledPack>> _load() async {
+  Future<_Packs> _load() async {
     _errors.clear();
+    final broken = <String>{};
     await installBundledPack('assets/packs/tome.demo');
-    final packs = await listInstalledPacks(
-        onError: (dir, e) => _errors.add('${dir.split(RegExp(r'[/\\]')).last}: $e'));
+    final packs = await listInstalledPacks(onError: (dir, e) {
+      final id = dir.split(RegExp(r'[/\\]')).last;
+      broken.add(id);
+      _errors.add('$id: $e');
+    });
     for (final pack in packs) {
       _progress[pack.manifest.id] ??= await ProgressStore.load(pack.manifest.id);
     }
     unawaited(_fetchMissingIcons(packs));
-    return packs;
+    // Packs added before but not on this phone (restored from a backup).
+    final missing =
+        await updateKnownPacks(packs, presentIds: broken).catchError((_) => <KnownPack>[]);
+    return (installed: packs, missing: missing);
   }
 
   /// Packs installed before the app knew about custom icons (or while offline)
@@ -66,9 +76,9 @@ class _PacksScreenState extends State<PacksScreen> {
     });
   }
 
-  Future<void> _addPack() async {
+  Future<void> _addPack({String? link}) async {
     final added = await Navigator.of(context).push<InstalledPack>(
-        MaterialPageRoute(builder: (_) => const AddPackScreen()));
+        MaterialPageRoute(builder: (_) => AddPackScreen(initialLink: link)));
     if (added != null && mounted) {
       _reload();
       ScaffoldMessenger.of(context)
@@ -164,6 +174,24 @@ class _PacksScreenState extends State<PacksScreen> {
     );
     if (ok != true) return;
     await deletePack(pack);
+    await forgetKnownPack(pack.manifest.id);
+    if (mounted) _reload();
+  }
+
+  Future<void> _forget(KnownPack pack) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Remove ${pack.name} from the list?'),
+        content: const Text('Your found progress is kept, so adding the pack again later restores it.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await forgetKnownPack(pack.id);
     if (mounted) _reload();
   }
 
@@ -194,7 +222,7 @@ class _PacksScreenState extends State<PacksScreen> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final packs = snapshot.data!;
+          final (:installed, :missing) = snapshot.data!;
           return RefreshIndicator(
             onRefresh: () async {
               final reload = _load();
@@ -206,7 +234,7 @@ class _PacksScreenState extends State<PacksScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               children: [
-                for (final pack in packs)
+                for (final pack in installed)
                   _PackCard(
                     pack: pack,
                     progress: _progress[pack.manifest.id]!,
@@ -214,6 +242,18 @@ class _PacksScreenState extends State<PacksScreen> {
                     onCheckUpdate: isBundled(pack) ? null : () => _checkForUpdate(pack),
                     onDelete: isBundled(pack) ? null : () => _delete(pack),
                   ),
+                if (missing.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 16, 4, 4),
+                    child: Text('Not on this phone yet', style: Theme.of(context).textTheme.titleSmall),
+                  ),
+                  for (final k in missing)
+                    _MissingPackCard(
+                      pack: k,
+                      onTap: k.link == null ? null : () => _addPack(link: k.link),
+                      onRemove: () => _forget(k),
+                    ),
+                ],
                 for (final e in _errors)
                   Card(
                     color: Theme.of(context).colorScheme.errorContainer,
@@ -293,6 +333,41 @@ class _PackCard extends StatelessWidget {
             onTap: onTap,
           );
         },
+      ),
+    );
+  }
+}
+
+/// A pack restored from a backup (its progress is here) whose maps aren't
+/// downloaded on this phone.
+class _MissingPackCard extends StatelessWidget {
+  const _MissingPackCard({required this.pack, required this.onTap, required this.onRemove});
+
+  final KnownPack pack;
+
+  /// Downloads it again; null when there's no link to download from.
+  final VoidCallback? onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Icon(onTap != null ? Icons.cloud_download_outlined : Icons.folder_zip_outlined,
+            size: 32, color: muted),
+        title: Text(pack.name),
+        subtitle: Text(onTap != null
+            ? 'Your progress is saved. Tap to download the pack again.'
+            : 'Your progress is saved. This pack wasn\'t added from a link: add it again '
+                'the same way to see it.'),
+        trailing: PopupMenuButton<VoidCallback>(
+          onSelected: (action) => action(),
+          itemBuilder: (_) => [PopupMenuItem(value: onRemove, child: const Text('Remove from list'))],
+        ),
+        onTap: onTap,
       ),
     );
   }
