@@ -68,10 +68,21 @@ deal with it.
 - Each marker has an `id` unique within its pack.
 - Progress is stored keyed by `(packId, markerId)`, so packs can never collide and marker
   ids don't need a namespace prefix.
-- On the device it lives at `<app support>/progress/<packId>.json`, outside the pack folder,
-  so installing a new pack version or sideloading never touches it:
-  `{"format": "tome-progress", "version": 1, "pack": "<id>", "found": {"<markerId>": "<ISO time>"}}`.
-  The same file is what "Export progress" shares, and what sync will merge.
+- Each pack has **save slots**, like save files in a game. On the device they live outside the
+  pack folder, so installing a new pack version or sideloading never touches them:
+  - `<app support>/progress/<packId>/slots.json`: `{"format": "tome-slots", "version": 1,
+    "active": "<slotId>", "slots": [{"id": "main", "name": null}, ...]}`. The first slot has no
+    name until a second one is added.
+  - `<app support>/progress/<packId>/<slotId>.json`: `{"format": "tome-progress", "version": 2,
+    "pack": "<id>", "slot": "<slotId>", "slotName": "<name>" | null,
+    "markers": {"<markerId>": {"done": true | false, "updatedAt": "<ISO time>"}}}`.
+    Un-ticking keeps the marker with `done: false`, so a merge can tell "never found" from
+    "un-found since". This file is what "Export progress" shares, and what sync would merge.
+  - Version 1 (`<app support>/progress/<packId>.json`, `"found": {"<markerId>": "<ISO time>"}`)
+    becomes the first slot the first time the pack is opened.
+- `<app support>/known-packs.json` lists the packs the user added and their links. Android's
+  backup keeps it and the progress folder but not the packs (see `res/xml/*_rules.xml`), so a
+  restored phone offers the packs for download again.
 
 ## Sync (later)
 
@@ -82,8 +93,8 @@ Progress is local first. Cross-device sync options to evaluate in a later phase:
 - **iCloud key-value / CloudKit** on Apple devices.
 - **A private GitHub Gist** for users who already have GitHub signed in.
 
-Whatever is chosen, the sync format is a single JSON document of
-`{packId: {markerId: {done: true, updatedAt: ...}}}` merged per-marker by latest `updatedAt`.
+Whatever is chosen, slots are merged per marker by latest `updatedAt` (the slot files above
+already have that shape). Not planned for now: Android's backup covers moving to a new phone.
 
 ## DM mode (later)
 

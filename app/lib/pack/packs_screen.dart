@@ -315,7 +315,10 @@ class _PackCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   LinearProgressIndicator(value: tally.found / tally.total),
                   const SizedBox(height: 4),
-                  Text('${tally.found} of ${tally.total} found'),
+                  Text([
+                    '${tally.found} of ${tally.total} found',
+                    if (progress.slots.length > 1) ?progress.activeSlot.name,
+                  ].join(' · ')),
                 ],
               ],
             ),

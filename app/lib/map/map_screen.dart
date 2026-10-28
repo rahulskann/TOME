@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../pack/pack.dart';
 import '../pack/pack_store.dart';
 import '../progress/progress_store.dart';
+import '../progress/slots_sheet.dart';
 import '../search/marker_search.dart';
 import '../search/search_delegate.dart';
 import 'filter_sheet.dart';
@@ -120,13 +121,31 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: _editing ? scheme.tertiaryContainer : null,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_map.name),
-            Text(_editing ? 'Editing · ${_manifest.name}' : _manifest.name,
-                style: Theme.of(context).textTheme.bodySmall),
-          ],
+        // Tapping the title opens the save slots; with more than one, the
+        // active slot's name shows under the map name.
+        title: ListenableBuilder(
+          listenable: widget.progress,
+          builder: (context, _) {
+            final slot = widget.progress.slots.length > 1 ? widget.progress.activeSlot.name : null;
+            return InkWell(
+              onTap: _openSlots,
+              borderRadius: BorderRadius.circular(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_map.name),
+                  Text(
+                    [
+                      if (_editing) 'Editing',
+                      _manifest.name,
+                      ?slot,
+                    ].join(' · '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -162,6 +181,7 @@ class _MapScreenState extends State<MapScreen> {
           PopupMenuButton<void Function()>(
             onSelected: (action) => action(),
             itemBuilder: (_) => [
+              PopupMenuItem(value: _openSlots, child: const Text('Save slots')),
               PopupMenuItem(value: _exportProgress, child: const Text('Export progress')),
               PopupMenuItem(value: _exportMarkers, child: const Text('Export markers')),
             ],
@@ -675,13 +695,19 @@ class _MapScreenState extends State<MapScreen> {
       ));
   }
 
+  void _openSlots() => showSlotsSheet(context,
+      progress: widget.progress, markers: widget.pack.markers.values.expand((l) => l));
+
   Future<void> _exportProgress() async {
     final tally = widget.progress.tally(widget.pack.markers.values.expand((l) => l));
+    final slot = widget.progress.slots.length > 1 ? widget.progress.activeSlot.name : null;
+    final title = [_manifest.name, ?slot].join(' · ');
+    final fileSlot = slot == null ? '' : '.${slot.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
     await SharePlus.instance.share(ShareParams(
       files: [XFile.fromData(utf8.encode(widget.progress.toJsonString()), mimeType: 'application/json')],
-      fileNameOverrides: ['${_manifest.id}.progress.json'],
-      subject: '${_manifest.name} progress',
-      text: '${_manifest.name}: ${tally.found} of ${tally.total} found.',
+      fileNameOverrides: ['${_manifest.id}$fileSlot.progress.json'],
+      subject: '$title progress',
+      text: '$title: ${tally.found} of ${tally.total} found.',
     ));
   }
 

@@ -12,10 +12,12 @@ Releases go to the closed test first. Production needs 12 testers opted in for 1
 - [x] **1.1.0 (build 2):** the "Found" message closes itself; Android backup keeps progress, filters
       and `known-packs.json` (the packs added and their links) but not the packs (25 MB limit);
       after a restore, packs show under "Not on this phone yet" with Tap to download again
-- [ ] **1.1.1: save slots.** Per pack; one unnamed slot to start, adding a second asks for names for
+- [x] **1.1.1: save slots.** Per pack; one unnamed slot to start, adding a second asks for names for
       both (unless the first is named), unlimited. Switch from the map title; slot name shows there and
       on the pack card once there are two. New slots start empty; filters shared, found ticks per slot;
       rename anytime, delete with confirmation, never the last one; export progress exports the slot.
+      Also in the map's ⋮ menu (Save slots), since an unnamed single slot shows nothing in the title;
+      a new slot becomes the active one; slot names must differ.
       One storage change: per-slot progress, and un-ticks kept as `{done: false, updatedAt}` (so a
       future merge can't bring them back); v1 progress becomes the first slot automatically.
 - [ ] **1.1.2: widget and themes.** Widget: one pack each, small (count) or wide (name, slot, X/Y,

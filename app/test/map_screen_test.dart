@@ -44,6 +44,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // Saving and switching slots does real file work, which the test clock
+  // doesn't advance: alternate real waits with frames until it's done.
+  Future<void> settleIo(WidgetTester tester) async {
+    for (var i = 0; i < 20; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+  }
+
   // The map listens for double-tap zoom, so single taps resolve only after
   // the double-tap window.
   Future<void> tapOnMap(WidgetTester tester, Finder finder) async {
@@ -224,5 +234,57 @@ void main() {
     expect(find.text('Cave Detail'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 7));
+  });
+
+  testWidgets('save slots: name both, the new one starts empty, its name shows in the title',
+      (tester) async {
+    final pack = PackManifest.fromJson({
+      'schemaVersion': 1,
+      'id': 's',
+      'name': 'Silk',
+      'version': '1',
+      'maps': [_map('a', 'Map A', 500, 500, 1)],
+    });
+    await pumpScreen(tester, pack, {
+      'a': [MapMarker.fromJson({'id': 'shard', 'name': 'Shard', 'x': 250, 'y': 250})],
+    });
+    progress.setFound('shard', true);
+    await tester.pumpAndSettle();
+    expect(find.text('Silk'), findsOneWidget, reason: 'one unnamed slot: no slot name shown');
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save slots'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unnamed slot'), findsOneWidget);
+    expect(find.text('1 of 1 found · playing now'), findsOneWidget);
+
+    await tester.tap(find.text('Add slot'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(find.text('Give it a name'), findsNWidgets(2), reason: 'both slots need names');
+
+    await tester.enterText(find.widgetWithText(TextField, 'Your current progress'), 'First run');
+    await tester.enterText(find.widgetWithText(TextField, 'New slot'), 'first RUN');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(find.text('Another slot already has this name'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'New slot'), 'Steel Soul');
+    await tester.tap(find.text('Add'));
+    await settleIo(tester);
+
+    expect(find.text('Silk · Steel Soul'), findsOneWidget);
+    expect(progress.isFound('shard'), isFalse, reason: 'the new slot starts empty');
+
+    // Switch back from the title.
+    await tester.tap(find.text('Silk · Steel Soul'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('First run'));
+    await settleIo(tester);
+    expect(find.text('Silk · First run'), findsOneWidget);
+    expect(progress.isFound('shard'), isTrue);
+    await tester.runAsync(progress.flush);
   });
 }
