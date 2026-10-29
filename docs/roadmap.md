@@ -25,12 +25,22 @@ Releases go to the closed test first. Production needs 12 testers opted in for 1
       The small widget also shows the pack name, to tell widgets apart; the theme is picked from the
       palette button on the home screen, and the widget follows it. Debug builds are now
       `com.rahulkannan.tome.dev` ("TOME dev"), installing beside the Play version.
-- [ ] **Your edits survive pack updates:** store on-device edits separately from the pack (shared
-      by all slots, backed up); your version wins, with an "edited" badge and Reset to pack version.
-- [ ] **Marker photos** (top of the marker card, full screen on tap; add in edit mode) and a
-      **"You are here" GPS dot** on maps pinned to real coordinates in Studio (off by default,
-      while the app is open only, edge arrow and distance when off the map; nothing stored or sent;
-      update the privacy policy and data safety form in the same release).
+- [x] **1.1.3: your edits survive pack updates:** on-device edits are stored apart from the pack
+      (`edits/<packId>.json`, shared by all slots, backed up); your version wins. "Edited on this
+      phone" on the marker card, a pencil on edited markers in edit mode, Reset to pack version in
+      the editor, and Restore deleted markers in the map's ⋮ menu. The update warning is gone.
+- [x] **1.1.4: marker photos and "You are here".** Photos: a marker's `photo` (a path in the
+      pack, downloaded with it) shows across the top of its card, full screen on tap; in edit mode,
+      Take photo / Choose photo / Remove photo. Photos added on the phone are kept with the edits
+      (`photos/<packId>/`), left out of the cloud backup for size, exported with the markers and
+      pulled by `tools/pull_markers.py`. You are here: maps with `geo` points get a location
+      button (off by default; explained before Android asks; only while TOME is on screen; no
+      background location); a dot with an accuracy ring, or an edge arrow with the distance and
+      direction when off screen or off the map; nothing stored or sent. Also fixed: Export
+      markers now includes your edits. Studio checks photo paths and pins, and warns that it
+      doesn't carry photos yet.
+- [ ] **Studio:** pin a map to real places (click two spots on the image and on a real map), and
+      marker photo upload (stored outside the browser's small storage).
 - [ ] **Phone-friendly, offline Studio**, and **Open a zip on this phone** in the app ("On this phone"
       packs; opening a newer zip keeps progress). Decide on an in-app map maker after that.
 - [ ] **DM mode:** discuss in detail first, starting from `dm-mode.md`.

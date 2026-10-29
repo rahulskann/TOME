@@ -84,6 +84,25 @@ describe('model', () => {
     expect(messages).toMatch(/outside/);
     expect(messages).toMatch(/at least 3 outline points/);
   });
+
+  it('validate checks marker photos and pinned maps', () => {
+    const pack = newPack();
+    pack.id = 'a.b';
+    pack.maps.push(mapForImage('w', 'W', 100, 100));
+    pack.maps[0].geo = { points: [[0, 0, 95, 10]] };
+    const markers: Record<string, Marker[]> = {
+      w: [
+        { id: 'a', name: 'A', x: 5, y: 5, photo: 'photos/a.jpg' },
+        { id: 'b', name: 'B', x: 6, y: 5, photo: '../b.jpg' },
+      ],
+    };
+    const messages = validate(pack, markers).map((p) => p.message).join('\n');
+    expect(messages).toMatch(/photo path the app won't load \("\.\.\/b\.jpg"\)/);
+    expect(messages).not.toMatch(/"photos\/a\.jpg"/);
+    expect(messages).toMatch(/2 markers have photos/);
+    expect(messages).toMatch(/at least 2 points/);
+    expect(messages).toMatch(/isn't on Earth/);
+  });
 });
 
 describe('packs in and out', () => {

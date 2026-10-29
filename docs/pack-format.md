@@ -75,6 +75,7 @@ Tile archives are attached to a GitHub Release, not committed.
 | `maps[].description` | no | About this map, shown in its info sheet (with optional `source` credit). |
 | `maps[].wiki` | no | Wiki page for this map. |
 | `maps[].zoomsInto` | no | A detailed map that zooming in anywhere on this one continues on. See below. |
+| `maps[].geo` | no | Pins a map of a real place to the Earth, so the app can show where the player is. See below. |
 | `maps[].layout` | no | Layout file the map's image is composed from (see below). Used by TOME Studio and `tools/compose_map.py`; the app ignores it. |
 
 ### Regions and areas
@@ -149,6 +150,25 @@ TOME Studio's **Pieces** tab or `tools/compose_map.py` (a small JSON layout of i
 named by the map's `layout`) and slice the result: the regions then line up with their
 neighbours. Keep the canvas size fixed as you add regions so marker positions never change
 (the studio's *Fit canvas* shifts markers along when it does change it).
+
+### Maps of real places
+
+A map of a real place (a city, a park, a campus, a festival ground) can be pinned to the Earth.
+The app then offers a **you are here** button on that map: a dot where the player is, or an
+arrow at the edge of the screen with the distance when they're off the map. Pin it with at
+least two points, far apart, where you know both the image pixel and the latitude and
+longitude (from any online map: right-click a spot to copy them):
+
+```json
+"geo": {
+  "points": [[212, 140, 45.5231, -122.6765], [1830, 1290, 45.5152, -122.6584]]
+}
+```
+
+Each point is `[x, y, latitude, longitude]`. The image is treated as a flat, scaled view of the
+ground that may be rotated, which suits maps up to a few tens of kilometres across. Two points
+fix it; more are averaged, which helps with hand-drawn maps. The location is only used on the
+player's phone, while the map is open, and only after they turn it on.
 
 ### Category icons
 
@@ -225,6 +245,7 @@ were filled before, so hand-written notes are never replaced.
 | `map` | no | Id of a map to open when the marker is tapped (doors, lifts, region labels). |
 | `links` | no | Extra links: `[{ "label": "Video guide", "url": "https://…" }]`. |
 | `trackable` | no | Default `true`. Set `false` for markers that can't be "checked off" (e.g. benches used only for navigation). |
+| `photo` | no | A picture of the place, shown at the top of the marker's card (tap for full screen): a path inside the pack to a PNG, WebP or JPEG, e.g. `photos/centre_stone.jpg`. Same path rules as `iconImage`. Keep them small (about 1600 px on the long side, a few hundred KB); the app downloads them with the pack. |
 
 Machine-readable schemas: [`schemas/pack.schema.json`](../schemas/pack.schema.json),
 [`schemas/markers.schema.json`](../schemas/markers.schema.json).

@@ -221,7 +221,7 @@ class MarkerCategory {
   final String? icon;
 
   /// A small image in the pack (e.g. `icons/mask_shard.png`) drawn instead of
-  /// [icon]. Only safe relative paths are kept (see [safeIconPath]).
+  /// [icon]. Only safe relative paths are kept (see [safeImagePath]).
   final String? iconImage;
 
   /// Where [iconImage] is on this device, when read from an installed pack.
@@ -240,7 +240,7 @@ class MarkerCategory {
   /// [root] is the installed pack's folder, for finding [iconImage].
   factory MarkerCategory.fromJson(Map<String, dynamic> json, {String? root}) {
     final image = json['iconImage'] as String?;
-    final safe = image != null && safeIconPath(image) ? image : null;
+    final safe = image != null && safeImagePath(image) ? image : null;
     return MarkerCategory(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -257,8 +257,9 @@ class MarkerCategory {
 }
 
 /// Whether [path] is a relative path inside a pack to a PNG, WebP or JPEG
-/// image: no `..`, no leading slash, no URL. Same rule as TOME Studio.
-bool safeIconPath(String path) =>
+/// image (a type icon or a marker photo): no `..`, no leading slash, no URL.
+/// Same rule as TOME Studio.
+bool safeImagePath(String path) =>
     RegExp(r'^[\w.-]+(/[\w.-]+)*\.(png|webp|jpe?g)$', caseSensitive: false).hasMatch(path) &&
     !path.split('/').contains('..');
 
@@ -281,6 +282,7 @@ class MapDefinition {
     this.source,
     this.wiki,
     this.zoomsInto,
+    this.geo,
   });
 
   final String id;
@@ -316,6 +318,10 @@ class MapDefinition {
   /// A more detailed map that zooming in anywhere on this one swaps to.
   final ZoomLink? zoomsInto;
 
+  /// Where this map is on Earth, for maps of real places: lets the app show
+  /// where the player is.
+  final GeoPin? geo;
+
   /// Where this map's markers live, relative to the pack root. Maps without
   /// a `markers` entry get a conventional path so edits have somewhere to go.
   String get markersFile => markersPath ?? 'markers/$id.json';
@@ -347,8 +353,89 @@ class MapDefinition {
       zoomsInto: json['zoomsInto'] == null
           ? null
           : ZoomLink.fromJson(json['zoomsInto'] as Map<String, dynamic>),
+      geo: json['geo'] == null ? null : GeoPin.fromJson(json['geo'] as Map<String, dynamic>),
     );
   }
+}
+
+/// Pins a map of a real place to the Earth with matching points: (x, y) on
+/// the image and the latitude and longitude there.
+///
+/// The image is taken to be a flat, scaled and possibly rotated view of the
+/// ground (true of city, park and campus maps; fine for a region a few tens of
+/// km across), so two points are enough. With more, the best fit is used.
+class GeoPin {
+  GeoPin(List<(double, double, double, double)> points) : points = List.unmodifiable(points) {
+    if (points.length < 2) throw const FormatException('geo needs at least 2 points');
+    final n = points.length;
+    _lat0 = points.fold(0.0, (s, p) => s + p.$3) / n;
+    _lng0 = points.fold(0.0, (s, p) => s + p.$4) / n;
+    _cos0 = math.cos(_lat0 * math.pi / 180);
+    // Fit pixel = a * ground + b, with both as complex numbers (x + iy), by
+    // least squares: a is the scale and rotation, b the offset.
+    final ground = [for (final p in points) _ground(p.$3, p.$4)];
+    final (gx, gy) = _mean(ground);
+    final (px, py) = _mean([for (final p in points) (p.$1, p.$2)]);
+    var (nr, ni, d) = (0.0, 0.0, 0.0);
+    for (var i = 0; i < n; i++) {
+      final (ux, uy) = (ground[i].$1 - gx, ground[i].$2 - gy);
+      final (vx, vy) = (points[i].$1 - px, points[i].$2 - py);
+      nr += vx * ux + vy * uy; // v * conj(u)
+      ni += vy * ux - vx * uy;
+      d += ux * ux + uy * uy;
+    }
+    if (d < 1e-6) throw const FormatException('geo points must be at different places');
+    _ar = nr / d;
+    _ai = ni / d;
+    if (_ar * _ar + _ai * _ai < 1e-18) {
+      throw const FormatException('geo points must be at different places on the image');
+    }
+    _br = px - (_ar * gx - _ai * gy);
+    _bi = py - (_ar * gy + _ai * gx);
+  }
+
+  /// (x, y, latitude, longitude) for each matching point.
+  final List<(double, double, double, double)> points;
+
+  late final double _lat0, _lng0, _cos0, _ar, _ai, _br, _bi;
+
+  static const _metresPerDegree = 111320.0;
+
+  factory GeoPin.fromJson(Map<String, dynamic> json) => GeoPin([
+        for (final p in (json['points'] as List).cast<List<dynamic>>())
+          (
+            (p[0] as num).toDouble(),
+            (p[1] as num).toDouble(),
+            (p[2] as num).toDouble(),
+            (p[3] as num).toDouble(),
+          ),
+      ]);
+
+  /// Metres east and south of the points' middle (south, like image y).
+  (double, double) _ground(double lat, double lng) =>
+      ((lng - _lng0) * _cos0 * _metresPerDegree, (_lat0 - lat) * _metresPerDegree);
+
+  static (double, double) _mean(List<(double, double)> list) => (
+        list.fold(0.0, (s, p) => s + p.$1) / list.length,
+        list.fold(0.0, (s, p) => s + p.$2) / list.length,
+      );
+
+  /// The image pixel at [lat], [lng] (outside the image if it's off the map).
+  (double, double) toPixel(double lat, double lng) {
+    final (gx, gy) = _ground(lat, lng);
+    return (_ar * gx - _ai * gy + _br, _ar * gy + _ai * gx + _bi);
+  }
+
+  /// The latitude and longitude at image pixel ([x], [y]).
+  (double, double) toLatLng(double x, double y) {
+    final (vx, vy) = (x - _br, y - _bi);
+    final d = _ar * _ar + _ai * _ai;
+    final (gx, gy) = ((vx * _ar + vy * _ai) / d, (vy * _ar - vx * _ai) / d); // v / a
+    return (_lat0 - gy / _metresPerDegree, _lng0 + gx / (_cos0 * _metresPerDegree));
+  }
+
+  /// Ground distance covered by one image pixel.
+  double get metresPerPixel => 1 / math.sqrt(_ar * _ar + _ai * _ai);
 }
 
 /// Links an overview to a detailed map of the same world through matching
@@ -619,6 +706,7 @@ class MapMarker {
     this.links = const [],
     this.map,
     this.source,
+    this.photo,
     this.extra = const {},
   });
 
@@ -642,13 +730,18 @@ class MapMarker {
   /// Where [description] came from, for credit.
   final ContentSource? source;
 
+  /// A picture of the place, as a path inside the pack (e.g.
+  /// `photos/centre_stone.jpg`); see [safeImagePath]. Photos added on the
+  /// phone use the same form and are kept with the user's edits.
+  final String? photo;
+
   /// Fields this version of the app doesn't know, kept so saving an edited
   /// marker doesn't drop them.
   final Map<String, dynamic> extra;
 
   static const _known = {
     'id', 'name', 'x', 'y', 'category', 'description', 'trackable', 'wiki', 'links', 'map',
-    'source',
+    'source', 'photo',
   };
 
   factory MapMarker.fromJson(Map<String, dynamic> json) => MapMarker(
@@ -662,6 +755,7 @@ class MapMarker {
         wiki: json['wiki'] as String?,
         map: json['map'] as String?,
         source: ContentSource.fromJsonOrNull(json['source']),
+        photo: json['photo'] as String?,
         links: [
           for (final l in (json['links'] as List? ?? const []))
             MarkerLink.fromJson(l as Map<String, dynamic>),
@@ -683,6 +777,7 @@ class MapMarker {
         if (links.isNotEmpty) 'links': [for (final l in links) l.toJson()],
         if (map != null) 'map': map,
         if (source != null) 'source': source!.toJson(),
+        if (photo != null) 'photo': photo,
         if (!trackable) 'trackable': false,
         ...extra,
       };
@@ -696,6 +791,7 @@ class MapMarker {
     bool? trackable,
     String? Function()? wiki,
     ContentSource? Function()? source,
+    String? Function()? photo,
   }) =>
       MapMarker(
         id: id,
@@ -709,6 +805,7 @@ class MapMarker {
         links: links,
         map: map,
         source: source != null ? source() : this.source,
+        photo: photo != null ? photo() : this.photo,
         extra: extra,
       );
 

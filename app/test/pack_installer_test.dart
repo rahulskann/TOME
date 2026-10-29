@@ -7,8 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
+import 'package:tome/pack/marker_edits.dart';
 import 'package:tome/pack/pack.dart';
 import 'package:tome/pack/pack_installer.dart';
+import 'package:tome/pack/pack_store.dart';
 
 const raw = 'https://raw.githubusercontent.com/a/maps';
 const release = 'https://github.com/a/maps/releases/download/v1/world-tiles.zip';
@@ -42,7 +44,8 @@ String manifest({String version = '1.0.0', int? bytes}) => jsonEncode({
       ],
     });
 
-const markersJson = '[{"id": "m1", "name": "M1", "x": 10, "y": 10}]';
+const markersJson = '[{"id": "m1", "name": "M1", "x": 10, "y": 10, "photo": "photos/m1.jpg"},'
+    ' {"id": "m2", "name": "M2", "x": 20, "y": 20, "photo": "../../escape.jpg"}]';
 
 /// A fake GitHub: pack.json only on `master` under silksong/, a release zip
 /// that honours Range requests, and a markers file.
@@ -62,6 +65,7 @@ class FakeServer {
     }
     if (url == '$raw/master/silksong/markers/world.json') return http.Response(markersJson, 200);
     if (url == '$raw/master/silksong/icons/shard.png') return http.Response.bytes([1, 2, 3], 200);
+    if (url == '$raw/master/silksong/photos/m1.jpg') return http.Response.bytes([4, 5, 6], 200);
     if (url == release) {
       if (failZip) return http.Response('boom', 500);
       final range = req.headers['range'];
@@ -105,7 +109,7 @@ void main() {
         client: server.client, root: root, onProgress: progress.add);
 
     expect(pack.manifest.id, 'a.pack');
-    expect(pack.markers['world']!.single.id, 'm1');
+    expect(pack.markers['world']!.first.id, 'm1');
     expect(File(p.join(pack.dir, 'world', 'tiles', '1', '0', '0.png')).existsSync(), isTrue);
     expect(await installedFrom(pack), 'a/maps/silksong');
     expect(File(p.join(pack.dir, '.installed', 'markers', 'world.json')).existsSync(), isTrue);
@@ -129,6 +133,19 @@ void main() {
     expect(server.requests.map((r) => r.url.path), isNot(contains(endsWith('escape.png'))));
   });
 
+  test('downloads marker photos with the pack, and fetches missing ones later', () async {
+    final server = FakeServer();
+    final remote = await fetchRemotePack('a/maps/silksong', client: server.client);
+    final pack = await installRemotePack(remote, client: server.client, root: root);
+    final photo = File(p.join(pack.dir, 'photos', 'm1.jpg'));
+    expect(photo.readAsBytesSync(), [4, 5, 6]);
+    expect(server.requests.map((r) => r.url.path), isNot(contains(endsWith('escape.jpg'))));
+
+    photo.deleteSync(); // as if the connection dropped
+    expect(await fetchMissingImages(pack, client: server.client), 1);
+    expect(photo.readAsBytesSync(), [4, 5, 6]);
+  });
+
   test('fetches icons missing from an already-installed pack', () async {
     final server = FakeServer();
     final remote = await fetchRemotePack('a/maps/silksong', client: server.client);
@@ -136,10 +153,10 @@ void main() {
     final icon = File(pack.manifest.category('shard')!.iconFile!);
     icon.deleteSync(); // as if installed by an app that didn't know about icons
 
-    expect(await fetchMissingIcons(pack, client: server.client), 1);
+    expect(await fetchMissingImages(pack, client: server.client), 1);
     expect(icon.readAsBytesSync(), [1, 2, 3]);
     // The one that's missing on the server too is tried, not fatal; nothing else is fetched.
-    expect(await fetchMissingIcons(pack, client: server.client), 0);
+    expect(await fetchMissingImages(pack, client: server.client), 0);
   });
 
     test('resumes a partial download with a Range request', () async {
@@ -182,14 +199,26 @@ void main() {
     expect(await checkForUpdate(pack, client: server.client), isNull);
   });
 
-  test('detects marker edits made on the device', () async {
+  test('edits older versions made in the markers file move to the edits store', () async {
     final server = FakeServer();
     final pack = await installRemotePack(
         await fetchRemotePack('a/maps/silksong', client: server.client),
         client: server.client, root: root);
-    expect(await hasLocalMarkerEdits(pack), isFalse);
-    File(p.join(pack.dir, 'markers', 'world.json')).writeAsStringSync('[]');
-    expect(await hasLocalMarkerEdits(pack), isTrue);
+    final edits = await MarkerEdits.load('a.pack', directory: Directory(p.join(root.path, 'edits')));
+    await adoptInPlaceEdits(pack, edits);
+    expect(edits.isEmpty, isTrue, reason: 'nothing edited yet');
+
+    // The old way: the app rewrote the pack's markers file.
+    final file = File(p.join(pack.dir, 'markers', 'world.json'));
+    file.writeAsStringSync('[{"id": "m1", "name": "Renamed", "x": 10, "y": 10}]');
+    final again = await openInstalledPack(pack.dir);
+    await adoptInPlaceEdits(again, edits);
+    applyMarkerEdits(again, edits);
+
+    expect(file.readAsStringSync(), markersJson, reason: 'the pack file is as published again');
+    expect(edits.isEdited('m1'), isTrue);
+    expect(again.markers['world']!.single.name, 'Renamed');
+    expect(again.packMarkers['world']!.first.name, 'M1');
   });
 
   test('a pack with no source asks for a link, then remembers it', () async {

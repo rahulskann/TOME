@@ -140,6 +140,7 @@ Future<InstalledPack> installRemotePack(
     await downloads.create(recursive: true);
 
     final maps = remote.manifest.maps;
+    final photos = <String>{};
     for (var i = 0; i < maps.length; i++) {
       final map = maps[i];
       final label = maps.length > 1 ? '${map.name} (${i + 1}/${maps.length})' : map.name;
@@ -169,7 +170,8 @@ Future<InstalledPack> installRemotePack(
         if (resp.statusCode != 200) {
           throw PackFetchException('Couldn\'t download $markersPath (HTTP ${resp.statusCode}).');
         }
-        MapMarker.listFromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as List); // validate
+        final markers = MapMarker.listFromJson(jsonDecode(utf8.decode(resp.bodyBytes)) as List);
+        photos.addAll(markers.map((m) => m.photo).nonNulls);
         for (final dir in [staging.path, p.join(staging.path, installedSnapshotDir)]) {
           final out = File(p.join(dir, markersPath));
           await out.parent.create(recursive: true);
@@ -179,7 +181,9 @@ Future<InstalledPack> installRemotePack(
     }
 
     if (remote.manifest.categories.any((cat) => cat.iconImage != null)) report('Downloading icons');
-    await _downloadIcons(c, remote.folder, remote.manifest.categories.map((cat) => cat.iconImage), staging.path);
+    await _downloadImages(c, remote.folder, remote.manifest.categories.map((cat) => cat.iconImage), staging.path);
+    if (photos.isNotEmpty) report('Downloading photos');
+    await _downloadImages(c, remote.folder, photos, staging.path);
 
     await File(p.join(staging.path, sourceFileName)).writeAsString(jsonEncode({
       'input': remote.input,
@@ -251,11 +255,12 @@ Future<void> _download(
   }
 }
 
-/// Downloads custom type icons into [dir]. Optional: a missing one falls back
-/// to the built-in icon, so failures are skipped. Returns how many arrived.
-Future<int> _downloadIcons(http.Client c, Uri folder, Iterable<String?> paths, String dir) async {
+/// Downloads custom type icons and marker photos into [dir]. Optional: a
+/// missing icon falls back to the built-in one and a missing photo just isn't
+/// shown, so failures are skipped. Returns how many arrived.
+Future<int> _downloadImages(http.Client c, Uri folder, Iterable<String?> paths, String dir) async {
   var got = 0;
-  for (final path in {...paths.nonNulls}) {
+  for (final path in {...paths.nonNulls.where(safeImagePath)}) {
     try {
       final resp = await c.get(resolveInPack(folder, path));
       if (resp.statusCode != 200) continue;
@@ -272,19 +277,23 @@ Future<int> _downloadIcons(http.Client c, Uri folder, Iterable<String?> paths, S
   return got;
 }
 
-/// Fetches custom icons a downloaded pack names but doesn't have yet, e.g. a
-/// pack installed before the app knew about icons. Returns how many arrived.
-Future<int> fetchMissingIcons(InstalledPack pack, {http.Client? client}) async {
+/// Fetches custom icons and marker photos a downloaded pack names but doesn't
+/// have yet, e.g. a pack installed before the app knew about them, or while a
+/// connection dropped. Returns how many arrived.
+Future<int> fetchMissingImages(InstalledPack pack, {http.Client? client}) async {
+  bool missingHere(String path) => !File(p.joinAll([pack.dir, ...path.split('/')])).existsSync();
   final missing = [
     for (final cat in pack.manifest.categories)
       if (cat.iconFile != null && !File(cat.iconFile!).existsSync()) cat.iconImage,
+    for (final m in pack.packMarkers.values.expand((l) => l))
+      if (m.photo case final photo? when safeImagePath(photo) && missingHere(photo)) photo,
   ];
   if (missing.isEmpty) return 0;
   final folder = await _installedFolder(pack);
   if (folder == null) return 0;
   final c = client ?? http.Client();
   try {
-    return await _downloadIcons(c, folder, missing, pack.dir);
+    return await _downloadImages(c, folder, missing, pack.dir);
   } finally {
     if (client == null) c.close();
   }
@@ -353,25 +362,6 @@ String? guessPackLink(PackManifest manifest) {
     return [m.group(1)!, m.group(2)!, ?folder].join('/');
   }
   return null;
-}
-
-/// True if markers were changed on this device since the pack was installed,
-/// so an update would replace them.
-Future<bool> hasLocalMarkerEdits(InstalledPack pack) async {
-  for (final map in pack.manifest.maps) {
-    final current = File(p.join(pack.dir, map.markersFile));
-    if (!await current.exists()) continue;
-    File? snapshot;
-    for (final dir in [installedSnapshotDir, sideloadedSnapshotDir]) {
-      final f = File(p.join(pack.dir, dir, map.markersFile));
-      if (await f.exists()) snapshot = f;
-    }
-    if (snapshot == null) continue; // nothing to compare against
-    final a = jsonDecode(await current.readAsString());
-    final b = jsonDecode(await snapshot.readAsString());
-    if (jsonEncode(a) != jsonEncode(b)) return true;
-  }
-  return false;
 }
 
 /// Removes [pack] from the device. Progress is kept, so reinstalling restores it.

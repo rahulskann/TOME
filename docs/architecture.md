@@ -80,9 +80,36 @@ deal with it.
     "un-found since". This file is what "Export progress" shares, and what sync would merge.
   - Version 1 (`<app support>/progress/<packId>.json`, `"found": {"<markerId>": "<ISO time>"}`)
     becomes the first slot the first time the pack is opened.
+- Markers added, changed or deleted on the phone live in `<app support>/edits/<packId>.json`,
+  never in the pack's own files, and are shared by all save slots:
+  `{"format": "tome-edits", "version": 1, "pack": "<id>", "markers": {"<markerId>":
+  {"map": "<mapId>", "marker": {...} | null, "updatedAt": "<ISO time>"}}}` (`null` = deleted).
+  The app shows the pack's markers with these applied, so a pack update never replaces them, and
+  the user's version wins over the author's. Reset to pack version drops one edit. Edits made by
+  older versions (which rewrote the markers file) move here on first open, using the copy of the
+  markers kept at install (`.installed/` or `.sideloaded/`). `tools/pull_markers.py` applies the
+  same rules to pull the phone's markers into a pack folder.
+- Photos added to markers on the phone are copied (scaled to 1600 px at most) to
+  `<app support>/photos/<packId>/`, at the path they'd have in the pack
+  (`photos/<markerId>-<ms>.jpg`), and the edited marker's `photo` names that path. A marker's
+  photo is looked for there first, then in the pack folder. Photos no edit uses any more are
+  deleted when the pack is next loaded (never when the edits file couldn't be read).
+  `tools/pull_markers.py` copies them into the pack folder.
 - `<app support>/known-packs.json` lists the packs the user added and their links. Android's
-  backup keeps it and the progress folder but not the packs (see `res/xml/*_rules.xml`), so a
-  restored phone offers the packs for download again.
+  cloud backup keeps it, the progress and the edits, but not the packs or the photos (see
+  `res/xml/*_rules.xml`; the backup allows 25 MB in all), so a restored phone offers the packs
+  for download again. A phone-to-phone transfer copies everything.
+
+## You are here
+
+Maps pinned with `geo` (see [pack-format.md](pack-format.md)) get a location button. The pin
+is a similarity transform (scale, rotation, offset) fitted by least squares to the points, on a
+local flat projection of latitude and longitude; `GeoPin` in `pack.dart` converts both ways.
+Positions come from geolocator (Android's fused provider) only while the button is on and the
+app is on screen; they're drawn and dropped, never stored or sent. There's no background
+location: geolocator's background service is removed from the manifest. Off the map or off
+screen, an arrow at the screen edge shows the way, with the distance and compass direction
+from the centre of the screen (miles in the US, UK, Liberia and Myanmar).
 
 ## Sync (later)
 

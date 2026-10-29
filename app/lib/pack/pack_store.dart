@@ -20,17 +20,22 @@ import 'pack.dart';
 
 /// A pack whose maps are ready to render from local files.
 class InstalledPack {
-  const InstalledPack({
+  InstalledPack({
     required this.dir,
     required this.manifest,
     required this.markers,
-  });
+    Map<String, List<MapMarker>>? packMarkers,
+  }) : packMarkers = packMarkers ?? {...markers};
 
   final String dir;
   final PackManifest manifest;
 
-  /// Map id -> markers for that map.
+  /// Map id -> the markers shown: the pack's, with the user's edits applied
+  /// (see marker_edits.dart).
   final Map<String, List<MapMarker>> markers;
+
+  /// Map id -> the pack's own markers, as published.
+  final Map<String, List<MapMarker>> packMarkers;
 
   /// Absolute tile path template for FileTileProvider.
   String tileTemplate(MapDefinition map) => p.join(dir, map.id, 'tiles', map.tilesPath);
@@ -74,18 +79,6 @@ Future<InstalledPack> openInstalledPack(String dir) async {
   return InstalledPack(dir: dir, manifest: manifest, markers: markers);
 }
 
-/// Writes [markers] as [map]'s markers file, replacing it atomically so a
-/// crash mid-write can't leave a truncated file.
-Future<void> saveMarkers(
-    InstalledPack pack, MapDefinition map, List<MapMarker> markers) async {
-  final file = File(p.join(pack.dir, map.markersFile));
-  await file.parent.create(recursive: true);
-  final tmp = File('${file.path}.tmp');
-  await tmp.writeAsString(markersToJson(markers));
-  await tmp.rename(file.path);
-  pack.markers[map.id] = List.unmodifiable(markers);
-}
-
 /// Pretty-printed markers file contents, as the pack repo stores them.
 String markersToJson(List<MapMarker> markers) {
   final json = [for (final m in markers) m.toJson()];
@@ -105,8 +98,9 @@ Future<void> installBundledPack(String assetRoot) async {
     try {
       final current = jsonDecode(await installed.readAsString()) as Map<String, dynamic>;
       if (current['version'] == manifest.version) {
-        // Installs from before the marker existed need it too.
+        // Installs from before these existed need them too.
         await File(p.join(dir.path, '.bundled')).writeAsString('');
+        await _snapshotBundledMarkers(assetRoot, manifest, dir, onlyIfMissing: true);
         return;
       }
     } on FormatException {
@@ -115,29 +109,48 @@ Future<void> installBundledPack(String assetRoot) async {
   }
 
   if (await dir.exists()) await dir.delete(recursive: true);
+  final photos = <String>{};
   for (final map in manifest.maps) {
     final markersPath = map.markersPath;
     if (markersPath != null) {
       final out = File(p.join(dir.path, markersPath));
       await out.parent.create(recursive: true);
-      await out.writeAsString(await rootBundle.loadString('$assetRoot/$markersPath'));
+      final text = await rootBundle.loadString('$assetRoot/$markersPath');
+      await out.writeAsString(text);
+      photos.addAll(MapMarker.listFromJson(jsonDecode(text) as List).map((m) => m.photo).nonNulls);
     }
     final bytes = await rootBundle.load('$assetRoot/${map.tilesArchive}');
     await extractArchiveToDisk(ZipDecoder().decodeBytes(bytes.buffer.asUint8List()),
         p.join(dir.path, map.id, 'tiles'));
   }
-  // Custom type icons (list their folder under assets in pubspec.yaml).
-  for (final path in {for (final c in manifest.categories) ?c.iconImage}) {
+  // Custom type icons and marker photos (list their folders under assets in
+  // pubspec.yaml).
+  for (final path in {for (final c in manifest.categories) ?c.iconImage, ...photos.where(safeImagePath)}) {
     try {
-      final icon = await rootBundle.load('$assetRoot/$path');
+      final image = await rootBundle.load('$assetRoot/$path');
       final out = File(p.joinAll([dir.path, ...path.split('/')]));
       await out.parent.create(recursive: true);
-      await out.writeAsBytes(icon.buffer.asUint8List(icon.offsetInBytes, icon.lengthInBytes));
+      await out.writeAsBytes(image.buffer.asUint8List(image.offsetInBytes, image.lengthInBytes));
     } on FlutterError {
-      // Not bundled: the type falls back to its built-in icon.
+      // Not bundled: the type falls back to its built-in icon, a marker shows no photo.
     }
   }
+  await _snapshotBundledMarkers(assetRoot, manifest, dir);
   // Marks it as shipped with the app (not deletable or updatable from a link).
   await File(p.join(dir.path, '.bundled')).writeAsString('');
   await installed.writeAsString(manifestJson);
+}
+
+/// A copy of the markers as shipped, like downloaded packs keep, so edits made
+/// by older versions of the app (which rewrote the markers files) can be told apart.
+Future<void> _snapshotBundledMarkers(String assetRoot, PackManifest manifest, Directory dir,
+    {bool onlyIfMissing = false}) async {
+  for (final map in manifest.maps) {
+    final path = map.markersPath;
+    if (path == null) continue;
+    final out = File(p.join(dir.path, '.installed', path));
+    if (onlyIfMissing && await out.exists()) continue;
+    await out.parent.create(recursive: true);
+    await out.writeAsString(await rootBundle.loadString('$assetRoot/$path'));
+  }
 }

@@ -69,13 +69,18 @@ def stage(pack_dir: Path, out: Path) -> dict:
             snapshot = out / SNAPSHOT_DIR / m["markers"]
             snapshot.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(pack_dir / m["markers"], snapshot)
-    # Custom type icons (optional, like in the app: a missing one falls back).
-    for c in manifest.get("categories", []):
-        icon = c.get("iconImage")
-        if icon and ".." not in icon.split("/") and (pack_dir / icon).is_file():
-            dst = out / icon
+    # Custom type icons and marker photos (optional, like in the app: a missing
+    # icon falls back to the built-in one, a missing photo isn't shown).
+    images = [c.get("iconImage") for c in manifest.get("categories", [])]
+    for m in manifest["maps"]:
+        markers_file = pack_dir / m["markers"] if m.get("markers") else None
+        if markers_file and markers_file.is_file():
+            images += [mk.get("photo") for mk in json.loads(markers_file.read_text(encoding="utf-8"))]
+    for image in {i for i in images if i}:
+        if ".." not in image.split("/") and (pack_dir / image).is_file():
+            dst = out / image
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(pack_dir / icon, dst)
+            shutil.copyfile(pack_dir / image, dst)
     # Record where the pack is published (from its release URLs), so the app's
     # "Check for update" works on sideloaded packs too.
     link = guess_pack_link(manifest)
@@ -89,12 +94,9 @@ def stage(pack_dir: Path, out: Path) -> dict:
 SNAPSHOT_DIR = ".sideloaded"  # copy of the markers as last sideloaded; the app ignores it
 
 
-def phone_file(adb: list[str], pack_id: str, rel: str) -> object | None:
-    """Parsed JSON of a file in the installed pack, or None if absent/unreadable."""
-    result = subprocess.run(
-        adb + ["exec-out", "run-as", APP_ID, "cat", f"files/packs/{pack_id}/{rel}"],
-        capture_output=True,
-    )
+def phone_json(adb: list[str], path: str) -> object | None:
+    """Parsed JSON of a file in the app's data folder, or None if absent/unreadable."""
+    result = subprocess.run(adb + ["exec-out", "run-as", APP_ID, "cat", path], capture_output=True)
     if result.returncode != 0 or not result.stdout.strip():
         return None
     try:
@@ -103,24 +105,66 @@ def phone_file(adb: list[str], pack_id: str, rel: str) -> object | None:
         return None
 
 
+def phone_file(adb: list[str], pack_id: str, rel: str) -> object | None:
+    """Parsed JSON of a file in the installed pack, or None if absent/unreadable."""
+    return phone_json(adb, f"files/packs/{pack_id}/{rel}")
+
+
+def phone_photo(adb: list[str], pack_id: str, rel: str) -> bytes | None:
+    """A photo added on the phone (kept beside the edits at its pack path), or None."""
+    if ".." in rel.split("/"):
+        return None
+    result = subprocess.run(
+        adb + ["exec-out", "run-as", APP_ID, "cat", f"files/photos/{pack_id}/{rel}"], capture_output=True)
+    return result.stdout if result.returncode == 0 and result.stdout else None
+
+
+def phone_edits(adb: list[str], pack_id: str) -> dict:
+    """Marker edits made on the phone (files/edits/<pack>.json), kept apart from the pack."""
+    edits = phone_json(adb, f"files/edits/{pack_id}.json")
+    return edits if isinstance(edits, dict) else {}
+
+
+def apply_edits(map_id: str, pack_markers: list, edits: dict) -> list:
+    """The markers TOME shows for a map: the pack's, with the phone's edits applied
+    (the same rules as app/lib/pack/marker_edits.dart: edited versions in place,
+    deleted ones left out, markers only the phone has at the end)."""
+    entries = edits.get("markers", {})
+    in_pack = {m["id"] for m in pack_markers}
+    shown = []
+    for m in pack_markers:
+        edit = entries.get(m["id"])
+        if edit is None:
+            shown.append(m)
+        elif edit.get("marker") is not None:
+            shown.append(edit["marker"])
+    for marker_id, edit in entries.items():
+        if edit.get("map") == map_id and marker_id not in in_pack and edit.get("marker") is not None:
+            shown.append(edit["marker"])
+    return shown
+
+
+def phone_markers(adb: list[str], pack_id: str, map_id: str, rel: str, edits: dict) -> list | None:
+    """What TOME shows for a map on the phone, or None if the pack isn't installed."""
+    pack_markers = phone_file(adb, pack_id, rel)
+    if pack_markers is None:
+        return None
+    return apply_edits(map_id, pack_markers, edits)
+
+
 def unpulled_edits(adb: list[str], pack_dir: Path, manifest: dict) -> list[str]:
-    """Maps whose markers were changed on the phone since they were sideloaded."""
+    """Maps where what the phone shows (its pack plus its marker edits) differs
+    from this folder: edits made on the phone that haven't been pulled."""
+    edits = phone_edits(adb, manifest["id"])
     differing = []
     for m in manifest["maps"]:
         rel = m.get("markers") or f"markers/{m['id']}.json"
-        current = phone_file(adb, manifest["id"], rel)
-        if current is None:
+        shown = phone_markers(adb, manifest["id"], m["id"], rel, edits)
+        if shown is None:
             continue  # not installed yet
-        # Baseline: as last sideloaded, or as downloaded by the app (its .installed copy).
-        # (Explicit None checks: an empty marker list is a valid snapshot.)
-        baseline = phone_file(adb, manifest["id"], f"{SNAPSHOT_DIR}/{rel}")
-        if baseline is None:
-            baseline = phone_file(adb, manifest["id"], f".installed/{rel}")
-        if baseline is None:
-            # Installed before snapshots existed: compare with this folder instead.
-            local = pack_dir / rel
-            baseline = json.loads(local.read_text(encoding="utf-8")) if local.exists() else None
-        if current != baseline:
+        local = pack_dir / rel
+        here = json.loads(local.read_text(encoding="utf-8")) if local.exists() else []
+        if shown != here:
             differing.append(m["id"])
     return differing
 
@@ -156,9 +200,12 @@ def main() -> None:
         run("push", str(Path(tmp) / "pack"), DEVICE_TMP)
 
     # run-as works for debuggable builds and starts in the app's data directory.
+    # The phone's marker edits and photos are now part of this folder (or were
+    # discarded with --force), so they're cleared too.
     target = f"files/packs/{pack_id}"
     run("shell", "run-as", APP_ID, "sh", "-c",
-        f"'rm -rf {target} && mkdir -p files/packs && cp -r {DEVICE_TMP} {target}'")
+        f"'rm -rf {target} files/edits/{pack_id}.json files/photos/{pack_id} "
+        f"&& mkdir -p files/packs && cp -r {DEVICE_TMP} {target}'")
     run("shell", "rm", "-rf", DEVICE_TMP)
     print(f"installed to {APP_ID}/{target}. Pull down to refresh the pack list in TOME.")
 

@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widget/home_widget.dart';
 import 'add_pack_screen.dart';
 import 'known_packs.dart';
+import 'marker_edits.dart';
 import 'pack_installer.dart';
 import 'pack_store.dart';
 
@@ -32,6 +33,9 @@ class _PacksScreenState extends State<PacksScreen> {
 
   /// Progress per pack id, shared with the map screen so the cards update.
   final Map<String, ProgressStore> _progress = {};
+
+  /// The user's marker edits per pack id.
+  final Map<String, MarkerEdits> _edits = {};
 
   late final _widgets = HomeWidgetSync(onOpenPack: _openById);
 
@@ -76,9 +80,13 @@ class _PacksScreenState extends State<PacksScreen> {
       _errors.add('$id: $e');
     });
     for (final pack in packs) {
-      _progress[pack.manifest.id] ??= await ProgressStore.load(pack.manifest.id);
+      final id = pack.manifest.id;
+      _progress[id] ??= await ProgressStore.load(id);
+      final edits = _edits[id] ??= await MarkerEdits.load(id);
+      await adoptInPlaceEdits(pack, edits);
+      applyMarkerEdits(pack, edits);
     }
-    unawaited(_fetchMissingIcons(packs));
+    unawaited(_fetchMissingImages(packs));
     _widgets.update(packs: packs, progress: _progress);
     // Packs added before but not on this phone (restored from a backup).
     final missing =
@@ -86,12 +94,12 @@ class _PacksScreenState extends State<PacksScreen> {
     return (installed: packs, missing: missing);
   }
 
-  /// Packs installed before the app knew about custom icons (or while offline)
-  /// get them in the background; the list redraws once they arrive.
-  Future<void> _fetchMissingIcons(List<InstalledPack> packs) async {
+  /// Packs installed before the app knew about custom icons and photos (or
+  /// while offline) get them in the background; the list redraws once they arrive.
+  Future<void> _fetchMissingImages(List<InstalledPack> packs) async {
     var got = 0;
     for (final pack in packs) {
-      got += await fetchMissingIcons(pack).catchError((_) => 0);
+      got += await fetchMissingImages(pack).catchError((_) => 0);
     }
     if (got > 0 && mounted) _reload();
   }
@@ -104,6 +112,7 @@ class _PacksScreenState extends State<PacksScreen> {
         pack: pack,
         filter: filter,
         progress: _progress[pack.manifest.id]!,
+        edits: _edits[pack.manifest.id]!,
       ),
     ));
   }
@@ -175,10 +184,9 @@ class _PacksScreenState extends State<PacksScreen> {
             SnackBar(content: Text('${pack.manifest.name} is up to date (v${pack.manifest.version})')));
         return;
       }
-      final edited = await hasLocalMarkerEdits(pack);
       if (!mounted) return;
       final installed = await Navigator.of(context).push<InstalledPack>(MaterialPageRoute(
-          builder: (_) => AddPackScreen(update: update, replacesEdits: edited)));
+          builder: (_) => AddPackScreen(update: update)));
       if (installed != null && mounted) {
         _reload();
         messenger.showSnackBar(SnackBar(

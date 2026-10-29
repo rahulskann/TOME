@@ -1,6 +1,12 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Packs are downloaded from GitHub. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- "You are here" on maps pinned to real places: asked for only when the
+         user turns it on, and used only while TOME is on screen (no background
+         location). Approximate is enough to work, precise is better. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="${appLabel}"
         android:name="${applicationName}"
@@ -55,6 +61,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- geolocator's service for tracking in the background, which TOME never does. -->
+        <service
+            android:name="com.baseflow.geolocator.GeolocatorLocationService"
+            tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

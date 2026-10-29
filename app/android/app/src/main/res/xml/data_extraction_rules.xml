@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12 and later. Cloud backup goes to the user's Google account, which
      allows 25 MB per app (over that, nothing is saved), so downloaded packs are
-     left out: they're large and download again from their links. Progress, filter
-     choices and known-packs.json (the packs and their links) are kept.
+     left out: they're large and download again from their links. Photos added
+     to markers are left out too, so a few dozen can't push everything else over
+     the limit. Progress, marker edits, filter choices and known-packs.json (the
+     packs and their links) are kept.
      Phone-to-phone transfer has no size limit and copies everything. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="packs/" />
+        <exclude domain="file" path="photos/" />
     </cloud-backup>
 </data-extraction-rules>

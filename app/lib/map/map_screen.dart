@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../pack/pack.dart';
+import '../pack/marker_edits.dart';
 import '../pack/pack_store.dart';
 import '../progress/progress_store.dart';
 import '../progress/slots_sheet.dart';
@@ -18,10 +19,12 @@ import '../search/marker_search.dart';
 import '../search/search_delegate.dart';
 import 'filter_sheet.dart';
 import 'image_coords.dart';
+import 'live_location.dart';
 import 'map_info_sheet.dart';
 import 'marker_badge.dart';
 import 'marker_editor.dart';
 import 'marker_filter.dart';
+import 'marker_photo.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({
@@ -29,11 +32,24 @@ class MapScreen extends StatefulWidget {
     required this.pack,
     required this.filter,
     required this.progress,
+    required this.edits,
+    this.pickPhoto = pickPicture,
+    this.locationSource = const DeviceLocation(),
   });
 
   final InstalledPack pack;
   final MarkerFilter filter;
   final ProgressStore progress;
+
+  /// The user's marker edits for this pack: changes are saved here, never to
+  /// the pack's own files.
+  final MarkerEdits edits;
+
+  /// Takes or chooses a picture for a marker (replaced in tests).
+  final Future<String?> Function(PhotoSource source) pickPhoto;
+
+  /// Where "you are here" positions come from (replaced in tests).
+  final LocationSource locationSource;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -73,6 +89,12 @@ class _MapScreenState extends State<MapScreen> {
   (String mapId, double x, double y)? _highlightPoint;
   Timer? _highlightTimer;
 
+  /// "You are here", on pinned maps once turned on.
+  late final _location = LiveLocation(widget.locationSource)..addListener(_onLocation);
+
+  /// Turned on just now: go to the first position that arrives.
+  bool _goToNextFix = false;
+
   PackManifest get _manifest => widget.pack.manifest;
   List<MapMarker> get _markers => widget.pack.markers[_map.id] ?? const [];
   ImageCoords get _coords =>
@@ -106,6 +128,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _location.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -184,6 +207,8 @@ class _MapScreenState extends State<MapScreen> {
               PopupMenuItem(value: _openSlots, child: const Text('Save slots')),
               PopupMenuItem(value: _exportProgress, child: const Text('Export progress')),
               PopupMenuItem(value: _exportMarkers, child: const Text('Export markers')),
+              if (widget.edits.deletedCount(_map.id, _packMarkers) > 0)
+                PopupMenuItem(value: _restoreDeleted, child: const Text('Restore deleted markers')),
             ],
           ),
         ],
@@ -290,9 +315,12 @@ class _MapScreenState extends State<MapScreen> {
                               child: Center(
                                 child: _Highlight(
                                   on: m.id == _highlightId,
-                                  child: CategoryBadge(
-                                    category: _manifest.category(m.category),
-                                    found: m.trackable && widget.progress.isFound(m.id),
+                                  child: _EditedMark(
+                                    on: _editing && widget.edits.isEdited(m.id),
+                                    child: CategoryBadge(
+                                      category: _manifest.category(m.category),
+                                      found: m.trackable && widget.progress.isFound(m.id),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -302,8 +330,42 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
               ),
+              if (_map.geo case final geo?)
+                ListenableBuilder(
+                  listenable: _location,
+                  builder: (context, _) => switch (_location.fix) {
+                    final fix? when _location.on => YouAreHereLayer(
+                        fix: fix,
+                        map: _map,
+                        geo: geo,
+                        miles: usesMiles(View.of(context).platformDispatcher.locale),
+                        onGoTo: (x, y) =>
+                            _controller.move(coords.toLatLng(x, y), _controller.camera.zoom),
+                      ),
+                    _ => const SizedBox.shrink(),
+                  },
+                ),
             ],
           ),
+          if (_map.geo != null)
+            Positioned(
+              top: 60,
+              right: 12,
+              child: ListenableBuilder(
+                listenable: _location,
+                builder: (context, _) {
+                  final on = _location.on;
+                  return FloatingActionButton.small(
+                    heroTag: null,
+                    tooltip: on ? 'Stop showing where you are' : 'Show where you are',
+                    backgroundColor: on ? scheme.primaryContainer : scheme.surfaceContainerHigh,
+                    foregroundColor: on ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                    onPressed: _toggleLocation,
+                    child: Icon(on && _location.fix == null ? Icons.location_searching : Icons.my_location),
+                  );
+                },
+              ),
+            ),
           if (_manifest.categories.isNotEmpty || _markers.any((m) => m.trackable))
             Positioned(
               left: 0,
@@ -463,6 +525,8 @@ class _MapScreenState extends State<MapScreen> {
       final oldController = _controller;
       // Dispose once the old FlutterMap has been unmounted.
       WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
+      // Only pinned maps show where you are; don't keep listening elsewhere.
+      if (map.geo == null) _location.stop();
       setState(() {
         _controller = MapController();
         _map = map;
@@ -495,6 +559,8 @@ class _MapScreenState extends State<MapScreen> {
       y: y,
       newId: _newMarkerId,
       lastCategory: _lastCategory,
+      addPhoto: _addPhoto,
+      photoFile: _photoFile,
     );
     if (edit case MarkerSaved(:final marker)) {
       _lastCategory = marker.category;
@@ -510,6 +576,9 @@ class _MapScreenState extends State<MapScreen> {
       x: marker.x,
       y: marker.y,
       newId: _newMarkerId,
+      canReset: widget.edits.isEdited(marker.id) && _packMarkers.any((m) => m.id == marker.id),
+      addPhoto: _addPhoto,
+      photoFile: _photoFile,
     );
     switch (edit) {
       case MarkerSaved(marker: final updated):
@@ -517,6 +586,9 @@ class _MapScreenState extends State<MapScreen> {
       case MarkerDeleted():
         await _save([for (final m in _markers) if (m.id != marker.id) m],
             'Deleted "${marker.name}"');
+      case MarkerResetToPack():
+        widget.edits.reset(marker.id);
+        _showEdits('Reset "${marker.name}" to the pack\'s version');
       case MarkerMoveRequested(marker: final updated):
         // Keep any field edits made before pressing Move.
         await _save(_replace(marker.id, updated), null);
@@ -533,20 +605,50 @@ class _MapScreenState extends State<MapScreen> {
     await _save(_replace(marker.id, marker.copyWith(x: x, y: y)), 'Moved "${marker.name}"');
   }
 
+  /// A picture for a marker, kept with the edits; saved with the marker.
+  Future<String?> _addPhoto(PhotoSource source, String markerId) async {
+    final picture = await widget.pickPhoto(source);
+    return picture == null ? null : widget.edits.addPhoto(markerId, picture);
+  }
+
+  File? _photoFile(String? photo) => widget.edits.photoFile(widget.pack.dir, photo);
+
   List<MapMarker> _replace(String id, MapMarker updated) =>
       [for (final m in _markers) m.id == id ? updated : m];
 
+  /// The pack's own markers for this map, before the user's edits.
+  List<MapMarker> get _packMarkers => widget.pack.packMarkers[_map.id] ?? const [];
+
+  /// Saves [markers] as what this map should show. Only the differences from
+  /// the pack are stored, so a pack update never replaces them.
   Future<void> _save(List<MapMarker> markers, String? message) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await saveMarkers(widget.pack, _map, markers);
-      setState(() {});
-      if (message != null) {
-        messenger.showSnackBar(SnackBar(content: Text(message)));
-      }
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not save: $e')));
+    widget.edits.record(_map.id, _packMarkers, markers);
+    _showEdits(message);
+  }
+
+  void _showEdits(String? message) {
+    setState(() => applyMarkerEdits(widget.pack, widget.edits));
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+
+  Future<void> _restoreDeleted() async {
+    final count = widget.edits.deletedCount(_map.id, _packMarkers);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(count == 1 ? 'Restore 1 deleted marker?' : 'Restore $count deleted markers?'),
+        content: const Text('The pack\'s markers you deleted on this map come back.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Restore')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    widget.edits.restoreDeleted(_map.id);
+    _showEdits(count == 1 ? 'Restored 1 marker' : 'Restored $count markers');
   }
 
   /// Marker ids must be unique across the whole pack and never reused, since
@@ -572,23 +674,112 @@ class _MapScreenState extends State<MapScreen> {
         p.$2.clamp(0, _map.imageHeight.toDouble()).roundToDouble(),
       );
 
+  /// Shares each map's markers as this phone shows them (the pack's with the
+  /// user's edits), as files ready to drop into the pack, with the photos
+  /// added on this phone.
   Future<void> _exportMarkers() async {
-    final files = [
+    final maps = [
       for (final m in _manifest.maps)
-        if (File(p.join(widget.pack.dir, m.markersFile)).existsSync())
-          XFile(p.join(widget.pack.dir, m.markersFile), mimeType: 'application/json'),
+        if (widget.pack.markers[m.id]?.isNotEmpty ?? false) m,
     ];
-    if (files.isEmpty) {
+    if (maps.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('No markers to export yet')));
       return;
     }
+    final photos = {
+      for (final m in maps)
+        for (final marker in widget.pack.markers[m.id]!)
+          if (_photoFile(marker.photo) case final f? when p.isWithin(widget.edits.photosDir.path, f.path))
+            f.path,
+    };
     await SharePlus.instance.share(ShareParams(
-      files: files,
+      files: [
+        for (final m in maps)
+          XFile.fromData(utf8.encode(markersToJson(widget.pack.markers[m.id]!)),
+              mimeType: 'application/json'),
+        for (final photo in photos) XFile(photo),
+      ],
+      fileNameOverrides: [
+        for (final m in maps) p.basename(m.markersFile),
+        for (final photo in photos) p.basename(photo),
+      ],
       subject: '${_manifest.name} markers',
       text: 'Markers for ${_manifest.name} v${_manifest.version}. '
-          'Copy into the pack\'s markers/ folder.',
+          'Copy the .json files into the pack\'s markers/ folder'
+          '${photos.isEmpty ? '' : ' and the photos into its photos/ folder'}.',
     ));
+  }
+
+  // ---- You are here -----------------------------------------------------
+
+  Future<void> _toggleLocation() async {
+    if (_location.on) {
+      _location.stop();
+      return;
+    }
+    final source = widget.locationSource;
+    final messenger = ScaffoldMessenger.of(context);
+    var access = await source.check();
+    if (access == LocationAccess.serviceOff) {
+      messenger.showSnackBar(SnackBar(
+        content: const Text('Location is turned off on this phone'),
+        action: SnackBarAction(label: 'Settings', onPressed: source.openLocationSettings),
+      ));
+      return;
+    }
+    if (access == LocationAccess.denied) {
+      if (!mounted || await _explainLocation() != true) return;
+      access = await source.request();
+    }
+    if (access == LocationAccess.deniedForever && mounted) {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Location is off for TOME'),
+          content: const Text('To see where you are, allow location for TOME in its settings.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Open settings')),
+          ],
+        ),
+      );
+      if (open == true) await source.openAppSettings();
+      return;
+    }
+    if (access != LocationAccess.granted || !mounted) return;
+    _goToNextFix = true;
+    _location.start();
+  }
+
+  /// Said before Android asks for the permission.
+  Future<bool?> _explainLocation() => showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: const Icon(Icons.my_location),
+          title: const Text('Show where you are?'),
+          content: const Text(
+              'This map is pinned to a real place, so TOME can show a dot where you are. '
+              'Your location is only used while TOME is open on your screen, '
+              'and it\'s never saved or sent anywhere.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Continue')),
+          ],
+        ),
+      );
+
+  /// Goes to the first position after turning on, if it's on this map (the
+  /// edge arrow shows the way otherwise).
+  void _onLocation() {
+    final fix = _location.fix;
+    final geo = _map.geo;
+    if (!_goToNextFix || fix == null || geo == null || !mounted) return;
+    _goToNextFix = false;
+    final (x, y) = geo.toPixel(fix.lat, fix.lng);
+    if (x >= 0 && y >= 0 && x <= _map.imageWidth && y <= _map.imageHeight) {
+      _controller.move(_coords.toLatLng(x, y), _controller.camera.zoom);
+    }
   }
 
   // ---- Viewing ----------------------------------------------------------
@@ -714,6 +905,7 @@ class _MapScreenState extends State<MapScreen> {
   void _showDetails(MapMarker marker) {
     final category = _manifest.category(marker.category);
     final links = _manifest.linksFor(marker);
+    final photo = _photoFile(marker.photo);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -728,7 +920,13 @@ class _MapScreenState extends State<MapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (photo != null) ...[
+                  MarkerPhoto(file: photo, title: marker.name),
+                  const SizedBox(height: 12),
+                ],
                 Text(marker.name, style: text.titleLarge),
+                if (widget.edits.isEdited(marker.id))
+                  Text('Edited on this phone', style: text.bodySmall),
                 if (category != null) ...[
                   const SizedBox(height: 8),
                   Chip(
@@ -1031,6 +1229,35 @@ class _QuickFilterBar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// A small pencil on markers edited on this phone, shown in edit mode.
+class _EditedMark extends StatelessWidget {
+  const _EditedMark({required this.on, required this.child});
+
+  final bool on;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!on) return child;
+    final scheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          right: -4,
+          top: -4,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(color: scheme.tertiaryContainer, shape: BoxShape.circle),
+            child: Icon(Icons.edit, size: 10, color: scheme.onTertiaryContainer),
+          ),
+        ),
+      ],
     );
   }
 }

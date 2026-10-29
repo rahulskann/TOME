@@ -6,7 +6,7 @@ import 'pack_store.dart';
 /// Add a pack from a link, or install an update found for an existing pack.
 /// Pops with the installed pack on success.
 class AddPackScreen extends StatefulWidget {
-  const AddPackScreen({super.key, this.update, this.replacesEdits = false, this.initialLink});
+  const AddPackScreen({super.key, this.update, this.initialLink});
 
   /// When set, skip the link step and offer this version as an update.
   final RemotePack? update;
@@ -14,9 +14,6 @@ class AddPackScreen extends StatefulWidget {
   /// A link to fill in and look up straight away (re-downloading a pack
   /// restored from a backup).
   final String? initialLink;
-
-  /// The pack being updated has marker edits that the update will replace.
-  final bool replacesEdits;
 
   @override
   State<AddPackScreen> createState() => _AddPackScreenState();
@@ -138,16 +135,6 @@ class _AddPackScreenState extends State<AddPackScreen> {
             if (_remote case final remote?) ...[
               const SizedBox(height: 8),
               _Preview(remote: remote),
-              if (widget.replacesEdits)
-                const Card(
-                  child: ListTile(
-                    leading: Icon(Icons.warning_amber),
-                    title: Text('You\'ve edited markers in this pack on this device.'),
-                    subtitle: Text('Updating replaces them with the published markers. '
-                        'Export them first (map ⋮ menu → Export markers) to keep them. '
-                        'Your found progress is kept.'),
-                  ),
-                ),
               const SizedBox(height: 16),
               if (_progress case final progress?) ...[
                 Text(progress.message),

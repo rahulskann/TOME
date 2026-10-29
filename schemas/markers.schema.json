@@ -78,6 +78,11 @@
             "type": "string"
           }
         }
+      },
+      "photo": {
+        "type": "string",
+        "pattern": "^[\\w.-]+(/[\\w.-]+)*\\.([pP][nN][gG]|[wW][eE][bB][pP]|[jJ][pP][eE]?[gG])$",
+        "description": "A picture of the place: a path inside the pack, e.g. photos/centre_stone.jpg"
       }
     }
   }

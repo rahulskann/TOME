@@ -89,6 +89,8 @@ export interface MapDef {
   description?: string;
   wiki?: string;
   zoomsInto?: ZoomLink;
+  /** Pins a map of a real place to the Earth: [x, y, latitude, longitude], 2 or more. */
+  geo?: { points: [number, number, number, number][]; [extra: string]: unknown };
   /** Layout file this map is composed from (studio and tools only; the app ignores it). */
   layout?: string;
   [extra: string]: unknown;
@@ -103,6 +105,8 @@ export interface Marker {
   description?: string;
   wiki?: string;
   trackable?: boolean;
+  /** A picture of the place, as a path in the pack (e.g. photos/centre_stone.jpg). */
+  photo?: string;
   [extra: string]: unknown;
 }
 
@@ -218,6 +222,7 @@ export function validate(pack: Pack, markers: Record<string, Marker[]>): Problem
 
   const mapIds = new Set<string>();
   const markerIds = new Set<string>();
+  let photos = 0;
   for (const m of pack.maps) {
     if (mapIds.has(m.id)) err(`Two maps share the id "${m.id}".`);
     mapIds.add(m.id);
@@ -227,6 +232,17 @@ export function validate(pack: Pack, markers: Record<string, Marker[]>): Problem
       if (mk.category && !cats.has(mk.category)) warn(`Marker "${mk.name}" has a type that doesn't exist.`);
       if (mk.x < 0 || mk.y < 0 || mk.x > m.image.width || mk.y > m.image.height) {
         warn(`Marker "${mk.name}" is outside the ${m.name} image.`);
+      }
+      if (mk.photo !== undefined) {
+        photos++;
+        if (!safeIconPath(mk.photo)) err(`Marker "${mk.name}" has a photo path the app won't load ("${mk.photo}").`);
+      }
+    }
+    const geo = m.geo?.points ?? [];
+    if (m.geo && geo.length < 2) err(`${m.name} is pinned to real places: it needs at least 2 points.`);
+    for (const [, , lat, lng] of geo) {
+      if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) {
+        err(`${m.name} has a pin at latitude ${lat}, longitude ${lng}, which isn't on Earth.`);
       }
     }
     for (const r of m.regions ?? []) {
@@ -254,6 +270,10 @@ export function validate(pack: Pack, markers: Record<string, Marker[]>): Problem
         else if (!r.outline?.length) err(`Region "${r.name}" limits where ${m.name} zooms in, so it needs an outline.`);
       }
     }
+  }
+  if (photos > 0) {
+    warn(`${photos === 1 ? '1 marker has a photo' : `${photos} markers have photos`}. TOME Studio doesn't carry ` +
+      'photos yet, so keep the photos/ folder that\'s already in your repo when you copy an export in.');
   }
   return out;
 }

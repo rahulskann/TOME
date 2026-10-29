@@ -245,10 +245,10 @@ void main() {
 
   test('custom icon images: only safe paths, resolved inside the pack', () {
     for (final ok in ['icons/a.png', 'icons/sub/b_c-1.webp', 'x.JPG']) {
-      expect(safeIconPath(ok), isTrue, reason: ok);
+      expect(safeImagePath(ok), isTrue, reason: ok);
     }
     for (final bad in ['../a.png', 'icons/../../a.png', '/a.png', 'https://x/a.png', 'a.svg', 'a b.png', '']) {
-      expect(safeIconPath(bad), isFalse, reason: bad);
+      expect(safeImagePath(bad), isFalse, reason: bad);
     }
     final c = MarkerCategory.fromJson({'id': 'k', 'name': 'K', 'iconImage': 'icons/k.png'}, root: 'packdir');
     expect(c.iconImage, 'icons/k.png');
