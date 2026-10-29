@@ -461,8 +461,18 @@ void main() {
     // Far to the east: off the map, so an arrow and the distance.
     location.positions.add((lat: 45.525, lng: -122.50, accuracy: 10));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Off the map · about'), findsOneWidget);
+    expect(find.textContaining('Off this map · you\'re about'), findsOneWidget);
     expect(find.textContaining(' E'), findsOneWidget);
+
+    // An ocean away: millions of pixels off a small map, still just an arrow.
+    location.positions.add((lat: 51.5074, lng: -0.1278, accuracy: 10));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final far = find.textContaining(RegExp(r"Off this map · you're about [\d,]+ (mi|km) NE"));
+    expect(far, findsOneWidget);
+    final screen = Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    expect(screen.contains(tester.getTopLeft(far)) && screen.contains(tester.getBottomRight(far)), isTrue,
+        reason: 'the label is never cut off at the screen edge');
 
     // Turning it off removes it, and asks nothing next time.
     await tester.tap(find.byTooltip('Stop showing where you are'));

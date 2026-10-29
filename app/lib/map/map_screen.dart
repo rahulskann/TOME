@@ -358,8 +358,8 @@ class _MapScreenState extends State<MapScreen> {
                   return FloatingActionButton.small(
                     heroTag: null,
                     tooltip: on ? 'Stop showing where you are' : 'Show where you are',
-                    backgroundColor: on ? scheme.primaryContainer : scheme.surfaceContainerHigh,
-                    foregroundColor: on ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                    backgroundColor: on ? scheme.primary : scheme.surfaceContainerHigh,
+                    foregroundColor: on ? scheme.onPrimary : scheme.onSurfaceVariant,
                     onPressed: _toggleLocation,
                     child: Icon(on && _location.fix == null ? Icons.location_searching : Icons.my_location),
                   );

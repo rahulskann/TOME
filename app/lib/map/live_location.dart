@@ -183,10 +183,14 @@ class YouAreHereLayer extends StatelessWidget {
     final coords = ImageCoords(maxZoom: map.maxZoom, width: map.imageWidth, height: map.imageHeight);
     final (x, y) = geo.toPixel(fix.lat, fix.lng);
     final onMap = x >= 0 && y >= 0 && x <= map.imageWidth && y <= map.imageHeight;
-    final at = camera.latLngToScreenOffset(coords.toLatLng(x, y));
+    // Worked out from image pixels, not LatLng: someone far off a small map is
+    // millions of pixels away, beyond what LatLng accepts. (The map never rotates.)
+    final screenPerImagePixel = math.pow(2, camera.zoom - map.maxZoom).toDouble();
+    final (cx, cy) = coords.toPixel(camera.center);
     final size = camera.size;
+    final at = size.center(Offset.zero) + Offset((x - cx) * screenPerImagePixel, (y - cy) * screenPerImagePixel);
     if (onMap && (Offset.zero & size).contains(at)) {
-      final metresPerScreenPixel = geo.metresPerPixel / math.pow(2, camera.zoom - map.maxZoom);
+      final metresPerScreenPixel = geo.metresPerPixel / screenPerImagePixel;
       return IgnorePointer(
         child: CustomPaint(
           size: size,
@@ -206,28 +210,44 @@ class YouAreHereLayer extends StatelessWidget {
     final shift = Offset((edgeInsets.left - edgeInsets.right) / 2, (edgeInsets.top - edgeInsets.bottom) / 2);
     final anchor = centre + shift + dir * t;
 
-    final (cx, cy) = coords.toPixel(camera.center);
     final (clat, clng) = geo.toLatLng(cx, cy);
+    // Where the user is, seen from the middle of the screen; the arrow points there.
     final away = '${formatDistance(distanceMetres(clat, clng, fix.lat, fix.lng), miles: miles)} '
         '${compassDirection(clat, clng, fix.lat, fix.lng)}';
-    final label = onMap ? 'You · about $away' : 'Off the map · about $away';
-    return Stack(
-      children: [
-        Positioned(
-          left: anchor.dx,
-          top: anchor.dy,
-          child: FractionalTranslation(
-            translation: const Offset(-0.5, -0.5),
-            child: _EdgeArrow(
-              angle: math.atan2(dir.dy, dir.dx),
-              label: label,
-              onTap: onMap ? () => onGoTo(x, y) : null,
-            ),
-          ),
+    final label = onMap ? 'You\'re about $away' : 'Off this map · you\'re about $away';
+    return SizedBox.fromSize(
+      size: size,
+      child: CustomSingleChildLayout(
+        delegate: _CentredOnScreen(anchor),
+        child: _EdgeArrow(
+          angle: math.atan2(dir.dy, dir.dx),
+          label: label,
+          onTap: onMap ? () => onGoTo(x, y) : null,
         ),
-      ],
+      ),
     );
   }
+}
+
+/// Centres the arrow on its anchor, nudged inwards so it's never cut off.
+class _CentredOnScreen extends SingleChildLayoutDelegate {
+  const _CentredOnScreen(this.anchor);
+
+  final Offset anchor;
+  static const _margin = 8.0;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      constraints.loosen().deflate(const EdgeInsets.all(_margin));
+
+  @override
+  Offset getPositionForChild(Size size, Size child) => Offset(
+        (anchor.dx - child.width / 2).clamp(_margin, math.max(_margin, size.width - child.width - _margin)),
+        (anchor.dy - child.height / 2).clamp(_margin, math.max(_margin, size.height - child.height - _margin)),
+      );
+
+  @override
+  bool shouldRelayout(_CentredOnScreen old) => old.anchor != anchor;
 }
 
 class _DotPainter extends CustomPainter {
@@ -286,7 +306,7 @@ class _EdgeArrow extends StatelessWidget {
                 child: const Icon(Icons.arrow_forward, size: 20, color: YouAreHereLayer.dotColor),
               ),
               const SizedBox(width: 6),
-              Text(label, style: Theme.of(context).textTheme.labelMedium),
+              Flexible(child: Text(label, style: Theme.of(context).textTheme.labelMedium)),
             ],
           ),
         ),

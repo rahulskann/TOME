@@ -107,7 +107,8 @@ is a similarity transform (scale, rotation, offset) fitted by least squares to t
 local flat projection of latitude and longitude; `GeoPin` in `pack.dart` converts both ways.
 Positions come from geolocator (Android's fused provider) only while the button is on and the
 app is on screen; they're drawn and dropped, never stored or sent. There's no background
-location: geolocator's background service is removed from the manifest. Off the map or off
+location: geolocator's service (which delivers positions even in the foreground) is kept but
+stripped of its foreground-service type, and is never started as one. Off the map or off
 screen, an arrow at the screen edge shows the way, with the distance and compass direction
 from the centre of the screen (miles in the US, UK, Liberia and Myanmar).
 

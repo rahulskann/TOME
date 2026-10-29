@@ -61,10 +61,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- geolocator's service for tracking in the background, which TOME never does. -->
+        <!-- geolocator delivers positions through this service even while the app is
+             open, so it stays; but TOME never runs it as a foreground (background
+             tracking) service, so that type is removed. -->
         <service
             android:name="com.baseflow.geolocator.GeolocatorLocationService"
-            tools:node="remove" />
+            tools:remove="android:foregroundServiceType" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
