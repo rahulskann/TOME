@@ -170,6 +170,9 @@ ground that may be rotated, which suits maps up to a few tens of kilometres acro
 fix it; more are averaged, which helps with hand-drawn maps. The location is only used on the
 player's phone, while the map is open, and only after they turn it on.
 
+For an example, see the [GPS Test pack](https://github.com/rahulskann/demo_maps/tree/main/gps-test):
+four cities drawn from OpenStreetMap data, each pinned with nine points.
+
 ### Category icons
 
 `icon` must be one of these built-in names (unknown names fall back to `circle`):
