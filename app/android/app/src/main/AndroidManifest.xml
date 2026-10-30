@@ -7,6 +7,11 @@
          location). Approximate is enough to work, precise is better. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- The permissions above would make Play hide TOME from devices without
+         location hardware (some wifi-only tablets). Location is optional. -->
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.network" android:required="false"/>
     <application
         android:label="${appLabel}"
         android:name="${applicationName}"
